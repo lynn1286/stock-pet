@@ -95,7 +95,7 @@ function CrabSprite({ tradeStatus, changePct }: { tradeStatus: TradeStatus; chan
 
 export default function Pet() {
   const [stock, setStock] = useState<StockState | null>(null);
-  const [tradeStatus, setTradeStatus] = useState<TradeStatus>('trading');
+  const [tradeStatus, setTradeStatus] = useState<TradeStatus>('rest');
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
