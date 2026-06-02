@@ -10,7 +10,9 @@ interface StockState {
   status: string;
 }
 
-type Mood = 'up' | 'down' | 'flat';
+type TradeStatus = 'trading' | 'rest' | 'sleep';
+
+type Mood = 'up' | 'down' | 'flat' | 'coffee' | 'sleep';
 
 function moodFromStatus(status?: string): Mood {
   if (status === 'up') return 'up';
@@ -54,9 +56,9 @@ function Particles({ mood }: { mood: Mood }) {
 }
 
 function Crab({ mood }: { mood: Mood }) {
-  const bodyColor = mood === 'up' ? '#22c55e' : mood === 'down' ? '#ef4444' : '#fbbf24';
-  const bodyDark = mood === 'up' ? '#16a34a' : mood === 'down' ? '#dc2626' : '#d97706';
-  const bodyLight = mood === 'up' ? '#86efac' : mood === 'down' ? '#fca5a5' : '#fde68a';
+  const bodyColor = mood === 'up' ? '#22c55e' : mood === 'down' ? '#ef4444' : mood === 'sleep' ? '#8b5cf6' : mood === 'coffee' ? '#f59e0b' : '#fbbf24';
+  const bodyDark = mood === 'up' ? '#16a34a' : mood === 'down' ? '#dc2626' : mood === 'sleep' ? '#7c3aed' : mood === 'coffee' ? '#d97706' : '#d97706';
+  const bodyLight = mood === 'up' ? '#86efac' : mood === 'down' ? '#fca5a5' : mood === 'sleep' ? '#c4b5fd' : mood === 'coffee' ? '#fde68a' : '#fde68a';
   const cheekOpacity = mood === 'up' ? 0.5 : mood === 'down' ? 0.15 : 0.3;
 
   return (
@@ -97,7 +99,13 @@ function Crab({ mood }: { mood: Mood }) {
       <circle cx="48.5" cy="22" r="5" fill="white" stroke={bodyDark} strokeWidth="1.5" />
 
       {/* 瞳孔 */}
-      {mood === 'down' ? (
+      {mood === 'sleep' ? (
+        <>
+          {/* 睡觉：闭眼 */}
+          <line x1="27" y1="22" x2="36" y2="22" stroke="#1e1b4b" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="44" y1="22" x2="53" y2="22" stroke="#1e1b4b" strokeWidth="2.5" strokeLinecap="round" />
+        </>
+      ) : mood === 'down' ? (
         <>
           <circle cx="31.5" cy="23.5" r="2.5" fill="#1e1b4b" />
           <circle cx="48.5" cy="23.5" r="2.5" fill="#1e1b4b" />
@@ -108,14 +116,21 @@ function Crab({ mood }: { mood: Mood }) {
           <circle cx="49.5" cy="21" r="2.5" fill="#1e1b4b" />
         </>
       )}
-      <circle cx="33.5" cy="20" r="1" fill="white" />
-      <circle cx="50.5" cy="20" r="1" fill="white" />
+      {mood !== 'sleep' && (
+        <>
+          <circle cx="33.5" cy="20" r="1" fill="white" />
+          <circle cx="50.5" cy="20" r="1" fill="white" />
+        </>
+      )}
 
       {/* 嘴巴 */}
       {mood === 'up' ? (
         <path d="M33 52 Q40 58 47 52" stroke="#9f1239" strokeWidth="2" strokeLinecap="round" fill="none" />
       ) : mood === 'down' ? (
         <path d="M33 56 Q40 51 47 56" stroke="#9f1239" strokeWidth="2" strokeLinecap="round" fill="none" />
+      ) : mood === 'sleep' ? (
+        /* 睡觉：小嘴 */
+        <ellipse cx="40" cy="54" rx="3" ry="2" fill="#9f1239" opacity="0.6" />
       ) : (
         <path d="M35 53 Q40 56 45 53" stroke="#9f1239" strokeWidth="1.8" strokeLinecap="round" fill="none" />
       )}
@@ -129,22 +144,53 @@ function Crab({ mood }: { mood: Mood }) {
       <line x1="26" y1="58" x2="18" y2="68" stroke={bodyDark} strokeWidth="2" strokeLinecap="round" />
       <line x1="58" y1="56" x2="66" y2="66" stroke={bodyDark} strokeWidth="2" strokeLinecap="round" />
       <line x1="54" y1="58" x2="62" y2="68" stroke={bodyDark} strokeWidth="2" strokeLinecap="round" />
+
+      {/* 咖啡状态：添加咖啡杯 */}
+      {mood === 'coffee' && (
+        <g transform="translate(58, 28) rotate(15)">
+          <rect x="0" y="0" width="10" height="12" rx="2" fill="#8B4513" stroke="#6B3410" strokeWidth="1" />
+          <path d="M10 3 Q14 3 14 7 Q14 11 10 11" stroke="#6B3410" strokeWidth="1.2" fill="none" />
+          {/* 咖啡热气 */}
+          <path d="M3 -2 Q4 -5 3 -8" stroke="#9CA3AF" strokeWidth="0.8" fill="none" opacity="0.5" />
+          <path d="M7 -1 Q8 -4 7 -7" stroke="#9CA3AF" strokeWidth="0.8" fill="none" opacity="0.5" />
+        </g>
+      )}
+
+      {/* 睡眠状态：添加 ZZZ */}
+      {mood === 'sleep' && (
+        <g opacity="0.6">
+          <text x="56" y="18" fontSize="8" fill="#8b5cf6" fontFamily="sans-serif" fontWeight="bold">Z</text>
+          <text x="60" y="12" fontSize="6" fill="#8b5cf6" fontFamily="sans-serif" fontWeight="bold">z</text>
+          <text x="63" y="7" fontSize="5" fill="#8b5cf6" fontFamily="sans-serif" fontWeight="bold">z</text>
+        </g>
+      )}
     </svg>
   );
 }
 
 export default function Pet() {
   const [stock, setStock] = useState<StockState | null>(null);
+  const [tradeStatus, setTradeStatus] = useState<TradeStatus>('trading');
   const [anim, setAnim] = useState('anim-breathe');
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unlisten = listen<StockState>('stock-state', (e) => {
+    // 监听交易状态
+    const unlistenTrade = listen<TradeStatus>('trade-status', (e) => {
+      setTradeStatus(e.payload);
+    });
+
+    // 监听股票数据
+    const unlistenStock = listen<StockState>('stock-state', (e) => {
       const s = e.payload;
       setStock(s);
       setAnim(s.status === 'up' ? 'anim-bob' : s.status === 'down' ? 'anim-shake' : 'anim-breathe');
     });
-    return () => { unlisten.then(fn => fn()); };
+
+    return () => {
+      unlistenTrade.then(fn => fn());
+      unlistenStock.then(fn => fn());
+    };
   }, []);
 
   const handlePointerDown = useCallback(async (e: React.PointerEvent) => {
@@ -153,7 +199,18 @@ export default function Pet() {
     try { await getCurrentWindow().startDragging(); } catch {}
   }, []);
 
-  const mood = moodFromStatus(stock?.status);
+  // 根据交易状态决定 mood 和动画
+  const mood: Mood = tradeStatus === 'sleep'
+    ? 'sleep'
+    : tradeStatus === 'rest'
+      ? 'coffee'
+      : moodFromStatus(stock?.status);
+
+  const currentAnim = tradeStatus === 'sleep'
+    ? 'anim-sleep'
+    : tradeStatus === 'rest'
+      ? 'anim-coffee'
+      : anim;
 
   return (
     <div
@@ -163,7 +220,7 @@ export default function Pet() {
       onPointerDown={handlePointerDown}
     >
       <Particles mood={mood} />
-      <div className={`pet-avatar ${anim}`}>
+      <div className={`pet-avatar ${currentAnim}`}>
         <Crab mood={mood} />
       </div>
     </div>

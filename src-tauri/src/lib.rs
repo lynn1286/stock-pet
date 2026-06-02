@@ -6,6 +6,7 @@ use tauri::{
     menu::{Menu, MenuItem},
 };
 use tokio::time::{sleep, Duration};
+use chrono::{Local, Datelike, Timelike, Weekday};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StockState {
@@ -30,6 +31,66 @@ impl Default for StockState {
 
 struct AppState {
     stock_state: Mutex<StockState>,
+}
+
+/// 交易状态
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum TradeStatus {
+    /// 交易时段，正常工作
+    Trading,
+    /// 交易日但非交易时段（午休、开盘前、收盘后）
+    Rest,
+    /// 非交易日（周末、节假日）
+    Sleep,
+}
+
+/// 判断当前是否为交易日
+fn is_trading_day() -> bool {
+    let now = Local::now();
+    let weekday = now.weekday();
+
+    // 周末不交易
+    if weekday == Weekday::Sat || weekday == Weekday::Sun {
+        return false;
+    }
+
+    // TODO: 可以接入节假日 API 进一步判断
+    // 目前只判断周末
+    true
+}
+
+/// 判断当前是否在交易时段
+fn is_trading_hours() -> bool {
+    let now = Local::now();
+    let hour = now.hour();
+    let minute = now.minute();
+
+    let current_minutes = hour * 60 + minute;
+
+    // 上午 9:30 - 11:30
+    let morning_start = 9 * 60 + 30;
+    let morning_end = 11 * 60 + 30;
+
+    // 下午 13:00 - 15:00
+    let afternoon_start = 13 * 60;
+    let afternoon_end = 15 * 60;
+
+    (current_minutes >= morning_start && current_minutes <= morning_end)
+        || (current_minutes >= afternoon_start && current_minutes <= afternoon_end)
+}
+
+/// 获取当前交易状态
+fn get_trade_status() -> TradeStatus {
+    if !is_trading_day() {
+        return TradeStatus::Sleep;
+    }
+
+    if !is_trading_hours() {
+        return TradeStatus::Rest;
+    }
+
+    TradeStatus::Trading
 }
 
 async fn fetch_stock(secid: &str) -> Result<StockState, String> {
@@ -163,25 +224,39 @@ fn start_polling(app: AppHandle) {
         let fund_code = "000001"; // 华夏成长
 
         loop {
-            // 获取股票数据
-            match fetch_stock(stock_secid).await {
-                Ok(state) => {
-                    let app_state = app.state::<AppState>();
-                    *app_state.stock_state.lock().unwrap() = state.clone();
-                    let _ = app.emit("stock-state", state);
-                }
-                Err(e) => {
-                    log::error!("获取股票数据失败: {}", e);
-                }
-            }
+            let trade_status = get_trade_status();
 
-            // 获取基金数据
-            match fetch_fund(fund_code).await {
-                Ok(state) => {
-                    let _ = app.emit("fund-state", state);
+            // 发送交易状态事件，前端根据状态切换桌宠形象
+            let _ = app.emit("trade-status", &trade_status);
+
+            match trade_status {
+                TradeStatus::Trading => {
+                    // 交易时段：获取实时数据
+                    match fetch_stock(stock_secid).await {
+                        Ok(state) => {
+                            let app_state = app.state::<AppState>();
+                            *app_state.stock_state.lock().unwrap() = state.clone();
+                            let _ = app.emit("stock-state", state);
+                        }
+                        Err(e) => {
+                            log::error!("获取股票数据失败: {}", e);
+                        }
+                    }
+
+                    match fetch_fund(fund_code).await {
+                        Ok(state) => {
+                            let _ = app.emit("fund-state", state);
+                        }
+                        Err(e) => {
+                            log::error!("获取基金数据失败: {}", e);
+                        }
+                    }
                 }
-                Err(e) => {
-                    log::error!("获取基金数据失败: {}", e);
+                TradeStatus::Rest | TradeStatus::Sleep => {
+                    // 非交易时段：不请求数据，等待状态变化
+                    // 每 30 秒检查一次状态
+                    sleep(Duration::from_secs(30)).await;
+                    continue;
                 }
             }
 
