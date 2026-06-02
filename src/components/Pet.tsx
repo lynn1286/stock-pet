@@ -7,11 +7,11 @@ interface StockState {
   change_pct: number;
   name: string;
   symbol: string;
+  secid: string;
   status: string;
 }
 
 type TradeStatus = 'trading' | 'rest' | 'sleep';
-
 type Mood = 'up' | 'down' | 'flat' | 'coffee' | 'sleep';
 
 function moodFromStatus(status?: string): Mood {
@@ -101,7 +101,6 @@ function Crab({ mood }: { mood: Mood }) {
       {/* 瞳孔 */}
       {mood === 'sleep' ? (
         <>
-          {/* 睡觉：闭眼 */}
           <line x1="27" y1="22" x2="36" y2="22" stroke="#1e1b4b" strokeWidth="2.5" strokeLinecap="round" />
           <line x1="44" y1="22" x2="53" y2="22" stroke="#1e1b4b" strokeWidth="2.5" strokeLinecap="round" />
         </>
@@ -129,7 +128,6 @@ function Crab({ mood }: { mood: Mood }) {
       ) : mood === 'down' ? (
         <path d="M33 56 Q40 51 47 56" stroke="#9f1239" strokeWidth="2" strokeLinecap="round" fill="none" />
       ) : mood === 'sleep' ? (
-        /* 睡觉：小嘴 */
         <ellipse cx="40" cy="54" rx="3" ry="2" fill="#9f1239" opacity="0.6" />
       ) : (
         <path d="M35 53 Q40 56 45 53" stroke="#9f1239" strokeWidth="1.8" strokeLinecap="round" fill="none" />
@@ -145,18 +143,17 @@ function Crab({ mood }: { mood: Mood }) {
       <line x1="58" y1="56" x2="66" y2="66" stroke={bodyDark} strokeWidth="2" strokeLinecap="round" />
       <line x1="54" y1="58" x2="62" y2="68" stroke={bodyDark} strokeWidth="2" strokeLinecap="round" />
 
-      {/* 咖啡状态：添加咖啡杯 */}
+      {/* 咖啡状态 */}
       {mood === 'coffee' && (
         <g transform="translate(58, 28) rotate(15)">
           <rect x="0" y="0" width="10" height="12" rx="2" fill="#8B4513" stroke="#6B3410" strokeWidth="1" />
           <path d="M10 3 Q14 3 14 7 Q14 11 10 11" stroke="#6B3410" strokeWidth="1.2" fill="none" />
-          {/* 咖啡热气 */}
           <path d="M3 -2 Q4 -5 3 -8" stroke="#9CA3AF" strokeWidth="0.8" fill="none" opacity="0.5" />
           <path d="M7 -1 Q8 -4 7 -7" stroke="#9CA3AF" strokeWidth="0.8" fill="none" opacity="0.5" />
         </g>
       )}
 
-      {/* 睡眠状态：添加 ZZZ */}
+      {/* 睡眠状态 */}
       {mood === 'sleep' && (
         <g opacity="0.6">
           <text x="56" y="18" fontSize="8" fill="#8b5cf6" fontFamily="sans-serif" fontWeight="bold">Z</text>
@@ -175,12 +172,10 @@ export default function Pet() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // 监听交易状态
     const unlistenTrade = listen<TradeStatus>('trade-status', (e) => {
       setTradeStatus(e.payload);
     });
 
-    // 监听股票数据
     const unlistenStock = listen<StockState>('stock-state', (e) => {
       const s = e.payload;
       setStock(s);
@@ -199,7 +194,6 @@ export default function Pet() {
     try { await getCurrentWindow().startDragging(); } catch {}
   }, []);
 
-  // 根据交易状态决定 mood 和动画
   const mood: Mood = tradeStatus === 'sleep'
     ? 'sleep'
     : tradeStatus === 'rest'
