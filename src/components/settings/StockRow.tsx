@@ -80,6 +80,7 @@ export function StockRow({
         title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}
       >
         <div className="s-td-name-main">
+          {stock.is_primary && <span className="s-dropdown-tag s-tag-primary">主</span>}
           {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
           <span className="s-td-name-text">{stock.name}</span>
         </div>

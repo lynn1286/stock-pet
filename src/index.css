@@ -752,6 +752,11 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   color: #16a34a;
 }
 
+.s-tag-primary {
+  background: #fef9c3;
+  color: #a16207;
+}
+
 .s-btn-del-confirm {
   border: none;
   background: #ef4444;
