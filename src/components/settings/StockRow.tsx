@@ -67,6 +67,9 @@ export function StockRow({
     stock.quantity > 0 && stock.cost_price > 0 && currentPrice > 0
       ? (currentPrice - stock.cost_price) * stock.quantity
       : 0
+  const profitPct = stock.cost_price > 0 && currentPrice > 0
+    ? ((currentPrice - stock.cost_price) / stock.cost_price) * 100
+    : 0
   const marketValue = stock.quantity > 0 && currentPrice > 0
     ? stock.quantity * currentPrice
     : 0
@@ -148,7 +151,12 @@ export function StockRow({
       <td
         className={`s-td-num s-profit ${profit > 0 ? 's-profit-up' : profit < 0 ? 's-profit-down' : ''}`}
       >
-        {stock.quantity > 0 && stock.cost_price > 0 ? fmtProfit(profit) : '-'}
+        {stock.quantity > 0 && stock.cost_price > 0 ? (
+          <>
+            <div>{fmtProfit(profit)}</div>
+            <div className="s-profit-pct">{profitPct >= 0 ? '+' : ''}{profitPct.toFixed(2)}%</div>
+          </>
+        ) : '-'}
       </td>
 
       <td className="s-td-act">

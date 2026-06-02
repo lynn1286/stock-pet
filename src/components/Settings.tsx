@@ -15,6 +15,7 @@ export default function Settings() {
     liveStocks,
     deletedStockRef,
     setError,
+    fetchPrice,
     addStock,
     removeStock,
     undoDelete,
@@ -46,8 +47,8 @@ export default function Settings() {
   // 新增表单状态
   const [newSecid, setNewSecid] = useState('');
   const [newName, setNewName] = useState('');
-  const [newQty, setNewQty] = useState('');
-  const [newCost, setNewCost] = useState('');
+  const [newAmount, setNewAmount] = useState('');
+  const [newReturn, setNewReturn] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // 删除确认
@@ -118,16 +119,34 @@ export default function Settings() {
     setDialogError('');
     try {
       closeDropdown();
-      const qty = parseFloat(newQty) || 0;
-      const cost = parseFloat(newCost) || 0;
+      const amount = parseFloat(newAmount) || 0;
+      const ret = parseFloat(newReturn) || 0;
+      let currentPrice = liveStocks.get(newSecid)?.price || 0;
+      if (currentPrice <= 0) {
+        try {
+          currentPrice = await fetchPrice(newSecid, newAssetType);
+        } catch {
+          setDialogError('获取价格失败，请稍后重试');
+          setSubmitting(false);
+          return;
+        }
+      }
+      const totalCost = amount - ret;
+      if (totalCost <= 0) {
+        setDialogError('持有收益不能大于等于持有金额');
+        setSubmitting(false);
+        return;
+      }
+      const qty = amount / currentPrice;
+      const cost = totalCost / qty;
       const addedSecid = newSecid;
       await addStock(newSecid, newName, qty, cost, newAssetType);
       setNewlyAdded(addedSecid);
       setTimeout(() => setNewlyAdded(null), 1000);
       setNewSecid('');
       setNewName('');
-      setNewQty('');
-      setNewCost('');
+      setNewAmount('');
+      setNewReturn('');
       resetSearch();
       setShowAddDialog(false);
     } catch (e) {
@@ -143,8 +162,8 @@ export default function Settings() {
     resetSearch();
     setNewSecid('');
     setNewName('');
-    setNewQty('');
-    setNewCost('');
+    setNewAmount('');
+    setNewReturn('');
     setDialogError('');
   }
 
@@ -259,15 +278,15 @@ export default function Settings() {
         searchResults={searchResults}
         showDropdown={showDropdown}
         newName={newName}
-        newQty={newQty}
-        newCost={newCost}
+        newAmount={newAmount}
+        newReturn={newReturn}
         submitting={submitting}
         error={dialogError}
         canSubmit={!!newSecid && !!newName}
-        onSearchInput={(val) => { handleSearchInput(val); setNewSecid(''); setNewName(''); setDialogError(''); }}
+        onSearchInput={(val) => { handleSearchInput(val); setNewSecid(''); setNewName(''); setNewAmount(''); setNewReturn(''); setDialogError(''); }}
         onSelectResult={handleSelectSearchResult}
-        onQtyChange={setNewQty}
-        onCostChange={setNewCost}
+        onAmountChange={setNewAmount}
+        onReturnChange={setNewReturn}
         onSubmit={handleAdd}
         onClose={handleCloseDialog}
       />

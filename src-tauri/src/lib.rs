@@ -381,6 +381,20 @@ async fn search_stock(query: String) -> Result<Vec<SearchResult>, String> {
 }
 
 #[tauri::command]
+async fn fetch_single_price(secid: String, asset_type: AssetType) -> Result<f64, String> {
+    let stock = StockConfig {
+        secid,
+        name: String::new(),
+        is_primary: false,
+        quantity: 0.0,
+        cost_price: 0.0,
+        asset_type,
+    };
+    let (price, _, _, _) = fetch_price(&stock).await?;
+    Ok(price)
+}
+
+#[tauri::command]
 fn add_stock(secid: String, name: String, quantity: f64, cost_price: f64, asset_type: AssetType, state: tauri::State<AppState>) -> Result<(), String> {
     let mut config = state.config.lock().unwrap();
     if config.stocks.iter().any(|s| s.secid == secid) {
@@ -584,6 +598,7 @@ pub fn run() {
             get_config,
             get_stocks_state,
             search_stock,
+            fetch_single_price,
             add_stock,
             update_stock,
             remove_stock,

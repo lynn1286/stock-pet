@@ -94,6 +94,11 @@ export function useStockConfig() {
     }
   }, [error]);
 
+  // 获取单只股票价格
+  const fetchPrice = useCallback(async (secid: string, assetType: AssetType): Promise<number> => {
+    return invoke<number>('fetch_single_price', { secid, assetType });
+  }, []);
+
   // 添加股票
   const addStock = useCallback(async (
     secid: string, name: string, quantity: number, costPrice: number, assetType: AssetType,
@@ -190,6 +195,7 @@ export function useStockConfig() {
     deletedStockRef,
     setError,
     loadConfig,
+    fetchPrice,
     addStock,
     removeStock,
     undoDelete,

@@ -14,15 +14,15 @@ interface AddStockDialogProps {
   searchResults: SearchResult[]
   showDropdown: boolean
   newName: string
-  newQty: string
-  newCost: string
+  newAmount: string
+  newReturn: string
   submitting: boolean
   error: string
   canSubmit: boolean
   onSearchInput: (value: string) => void
   onSelectResult: (result: SearchResult) => void
-  onQtyChange: (value: string) => void
-  onCostChange: (value: string) => void
+  onAmountChange: (value: string) => void
+  onReturnChange: (value: string) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -33,15 +33,15 @@ export function AddStockDialog({
   searchResults,
   showDropdown,
   newName,
-  newQty,
-  newCost,
+  newAmount,
+  newReturn,
   submitting,
   error,
   canSubmit,
   onSearchInput,
   onSelectResult,
-  onQtyChange,
-  onCostChange,
+  onAmountChange,
+  onReturnChange,
   onSubmit,
   onClose,
 }: AddStockDialogProps) {
@@ -135,28 +135,30 @@ export function AddStockDialog({
 
         <div className="s-dialog-row">
           <label className="s-dialog-label s-dialog-label-half">
-            持有份额
+            持有金额（元）
             <input
               type="number"
               className="s-dialog-input"
-              placeholder="0"
-              value={newQty}
-              onChange={(e) => onQtyChange(e.target.value)}
+              placeholder="0.00"
+              value={newAmount}
+              onChange={(e) => onAmountChange(e.target.value)}
               min="0"
               step="0.01"
             />
           </label>
 
           <label className="s-dialog-label s-dialog-label-half">
-            成本价（元/份）
+            持有收益（元）
             <input
-              type="number"
+              type="text"
+              inputMode="decimal"
               className="s-dialog-input"
               placeholder="0.00"
-              value={newCost}
-              onChange={(e) => onCostChange(e.target.value)}
-              min="0"
-              step="0.0001"
+              value={newReturn}
+              onChange={(e) => {
+                const v = e.target.value
+                if (/^-?\d*\.?\d*$/.test(v)) onReturnChange(v)
+              }}
             />
           </label>
         </div>
