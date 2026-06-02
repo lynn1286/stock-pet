@@ -67,6 +67,9 @@ export function StockRow({
     stock.quantity > 0 && stock.cost_price > 0 && currentPrice > 0
       ? (currentPrice - stock.cost_price) * stock.quantity
       : 0
+  const marketValue = stock.quantity > 0 && currentPrice > 0
+    ? stock.quantity * currentPrice
+    : 0
 
   return (
     <tr
@@ -76,9 +79,13 @@ export function StockRow({
         className="s-td-name"
         title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}
       >
-        <span className="s-td-name-text">{stock.name}</span>
-        <span className="s-td-name-code">（{stock.secid.split('.')[1] || stock.secid}）</span>
-        {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
+        <div className="s-td-name-main">
+          {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
+          <span className="s-td-name-text">{stock.name}</span>
+        </div>
+        <div className="s-td-name-sub">
+          {marketValue > 0 ? `持有 ${fmtNum(marketValue)} 元` : stock.secid.split('.')[1] || stock.secid}
+        </div>
       </td>
 
       <td className="s-td-num">

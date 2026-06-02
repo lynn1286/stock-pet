@@ -345,20 +345,34 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 .s-table .s-th-act { width: auto; text-align: right; }
 
 .s-td-name {
-  font-weight: 500;
   color: var(--ink);
+  overflow: hidden;
+  max-width: 0;
+}
+
+.s-td-name-main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.s-td-name-text {
+  flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.s-td-name-text {
-  /* inherits font-weight: 500 from parent */
-}
-
-.s-td-name-code {
-  color: var(--ink3);
+.s-td-name-sub {
   font-size: 11px;
+  color: var(--ink3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .s-td-num {
@@ -720,7 +734,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   font-size: 10px;
   font-weight: 600;
   line-height: 16px;
-  margin-left: 4px;
+  flex-shrink: 0;
 }
 
 .s-tag-fund {
