@@ -209,40 +209,49 @@ export default function Settings() {
       </div>
 
       {/* 持仓表格 */}
-      <div className="s-table">
-        <div className="s-thead">
-          <span className="s-th s-th-name">名称</span>
-          <span className="s-th s-th-num">份额</span>
-          <span className="s-th s-th-num">成本价</span>
-          <span className="s-th s-th-num">现价</span>
-          <span className="s-th s-th-num">盈亏</span>
-          <span className="s-th s-th-act">操作</span>
-        </div>
-
+      <table className="s-table">
+        <thead>
+          <tr>
+            <th className="s-th-name">名称</th>
+            <th className="s-th-num">份额</th>
+            <th className="s-th-num">成本价</th>
+            <th className="s-th-num">现价</th>
+            <th className="s-th-num">盈亏</th>
+            <th className="s-th-act">操作</th>
+          </tr>
+        </thead>
         {config.stocks.length === 0 ? (
-          <EmptyState onAdd={() => setShowAddDialog(true)} />
+          <tbody>
+            <tr>
+              <td colSpan={6}>
+                <EmptyState onAdd={() => setShowAddDialog(true)} />
+              </td>
+            </tr>
+          </tbody>
         ) : (
-          config.stocks.map((stock) => (
-            <StockRow
-              key={stock.secid}
-              stock={stock}
-              live={liveStocks.get(stock.secid)}
-              isEditingQty={editing?.secid === stock.secid && editing.field === 'quantity'}
-              isEditingCost={editing?.secid === stock.secid && editing.field === 'cost_price'}
-              editValue={editValue}
-              isConfirmDelete={confirmDelete === stock.secid}
-              isHighlighted={newlyAdded === stock.secid}
-              onStartEdit={startEdit}
-              onCommitEdit={handleCommitEdit}
-              onEditKey={handleEditKeyDown}
-              onEditValueChange={setEditValue}
-              onDelete={handleDelete}
-              onCancelDelete={() => setConfirmDelete(null)}
-              onSetPrimary={setPrimary}
-            />
-          ))
+          <tbody>
+            {config.stocks.map((stock) => (
+              <StockRow
+                key={stock.secid}
+                stock={stock}
+                live={liveStocks.get(stock.secid)}
+                isEditingQty={editing?.secid === stock.secid && editing.field === 'quantity'}
+                isEditingCost={editing?.secid === stock.secid && editing.field === 'cost_price'}
+                editValue={editValue}
+                isConfirmDelete={confirmDelete === stock.secid}
+                isHighlighted={newlyAdded === stock.secid}
+                onStartEdit={startEdit}
+                onCommitEdit={handleCommitEdit}
+                onEditKey={handleEditKeyDown}
+                onEditValueChange={setEditValue}
+                onDelete={handleDelete}
+                onCancelDelete={() => setConfirmDelete(null)}
+                onSetPrimary={setPrimary}
+              />
+            ))}
+          </tbody>
         )}
-      </div>
+      </table>
 
       <AddStockDialog
         open={showAddDialog}

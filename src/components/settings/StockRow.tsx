@@ -69,17 +69,19 @@ export function StockRow({
       : 0
 
   return (
-    <div className={`s-tr ${stock.is_primary ? 's-tr-primary' : ''} ${isHighlighted ? 's-tr-highlight' : ''} ${isConfirmDelete ? 's-tr-confirm-delete' : ''}`}>
-      <span
-        className="s-td s-td-name"
+    <tr
+      className={`${stock.is_primary ? 's-tr-primary' : ''} ${isHighlighted ? 's-tr-highlight' : ''} ${isConfirmDelete ? 's-tr-confirm-delete' : ''}`}
+    >
+      <td
+        className="s-td-name"
         title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}
       >
         <span className="s-td-name-text">{stock.name}</span>
         <span className="s-td-name-code">（{stock.secid.split('.')[1] || stock.secid}）</span>
         {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
-      </span>
+      </td>
 
-      <span className="s-td s-td-num">
+      <td className="s-td-num">
         {isEditingQty ? (
           <span className="s-editing-cell">
             <input
@@ -104,9 +106,9 @@ export function StockRow({
             {stock.quantity > 0 ? fmtNum(stock.quantity, 2) : '点击填写'}
           </span>
         )}
-      </span>
+      </td>
 
-      <span className="s-td s-td-num">
+      <td className="s-td-num">
         {isEditingCost ? (
           <span className="s-editing-cell">
             <input
@@ -131,17 +133,17 @@ export function StockRow({
             {stock.cost_price > 0 ? fmtNum(stock.cost_price, 3) : '点击填写'}
           </span>
         )}
-      </span>
+      </td>
 
-      <span className="s-td s-td-num">{currentPrice > 0 ? fmtNum(currentPrice) : '-'}</span>
+      <td className="s-td-num">{currentPrice > 0 ? fmtNum(currentPrice) : '-'}</td>
 
-      <span
-        className={`s-td s-td-num s-profit ${profit > 0 ? 's-profit-up' : profit < 0 ? 's-profit-down' : ''}`}
+      <td
+        className={`s-td-num s-profit ${profit > 0 ? 's-profit-up' : profit < 0 ? 's-profit-down' : ''}`}
       >
         {stock.quantity > 0 && stock.cost_price > 0 ? fmtProfit(profit) : '-'}
-      </span>
+      </td>
 
-      <span className="s-td s-td-act">
+      <td className="s-td-act">
         {!stock.is_primary && (
           <button className="s-link" onClick={() => onSetPrimary(stock.secid)} title="设为主股票">
             主
@@ -150,10 +152,10 @@ export function StockRow({
         {isConfirmDelete ? (
           <>
             <button className="s-btn-del-confirm" onClick={() => onDelete(stock.secid)}>
-              确认
+              Y
             </button>
             <button className="s-btn-del-cancel" onClick={onCancelDelete}>
-              取消
+              N
             </button>
           </>
         ) : (
@@ -175,7 +177,7 @@ export function StockRow({
             </svg>
           </button>
         )}
-      </span>
-    </div>
+      </td>
+    </tr>
   )
 }

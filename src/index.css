@@ -300,45 +300,38 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 /* ---- Table ---- */
 
 .s-table {
-  margin: 0;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
 }
 
-.s-thead {
-  display: flex;
-  align-items: center;
-  padding: 6px 16px;
+.s-table thead {
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
 }
 
-.s-th {
+.s-table th {
+  padding: 6px 12px;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink3);
 }
 
-.s-th-name { width: 130px; flex-shrink: 0; }
-.s-th-num { width: 80px; flex-shrink: 0; text-align: right; }
-.s-th-act  { width: 60px; flex-shrink: 0; text-align: right; }
-
-.s-tr {
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  min-height: 40px;
+.s-table td {
+  padding: 0 12px;
+  height: 40px;
+  font-size: 13px;
   border-bottom: 1px solid #f2f2f2;
-  transition: background 0.1s;
+  vertical-align: middle;
 }
 
-.s-tr:last-child { border-bottom: none; }
-.s-tr:hover { background: #fafafa; }
-.s-tr-primary { background: #fafffe; }
-.s-tr-confirm-delete { background: #fef2f2; }
-.s-tr-confirm-delete:hover { background: #fee2e2; }
+.s-table tbody tr:last-child td { border-bottom: none; }
+.s-table tbody tr:hover { background: #fafafa; }
+.s-table .s-tr-primary { background: #fafffe; }
+.s-table .s-tr-confirm-delete { background: #fef2f2; }
+.s-table .s-tr-confirm-delete:hover { background: #fee2e2; }
 
-.s-tr-highlight {
+.s-table .s-tr-highlight {
   animation: s-row-flash 1s ease-out;
 }
 
@@ -347,13 +340,11 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   100% { background: transparent; }
 }
 
-.s-td {
-  font-size: 13px;
-}
+.s-table .s-th-name { width: 160px; text-align: left; }
+.s-table .s-th-num { width: 80px; text-align: right; }
+.s-table .s-th-act { width: auto; text-align: right; }
 
 .s-td-name {
-  width: 130px;
-  flex-shrink: 0;
   font-weight: 500;
   color: var(--ink);
   white-space: nowrap;
@@ -371,8 +362,6 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 }
 
 .s-td-num {
-  width: 80px;
-  flex-shrink: 0;
   text-align: right;
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
   font-size: 12px;
@@ -380,8 +369,8 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 }
 
 .s-td-act {
-  width: 60px;
-  flex-shrink: 0;
+  text-align: right;
+  white-space: nowrap;
   display: flex;
   align-items: center;
   justify-content: flex-end;
