@@ -1,46 +1,49 @@
 interface StockConfig {
-  secid: string;
-  name: string;
-  is_primary: boolean;
-  quantity: number;
-  cost_price: number;
-  asset_type: 'stock' | 'etf' | 'fund';
+  secid: string
+  name: string
+  is_primary: boolean
+  quantity: number
+  cost_price: number
+  asset_type: 'stock' | 'etf' | 'fund'
 }
 
 interface StockState {
-  secid: string;
-  price: number;
-  change_pct: number;
-  profit: number;
-  profit_pct: number;
+  secid: string
+  price: number
+  change_pct: number
+  profit: number
+  profit_pct: number
 }
 
 interface StockRowProps {
-  stock: StockConfig;
-  live: StockState | undefined;
-  isEditingQty: boolean;
-  isEditingCost: boolean;
-  editValue: string;
-  isConfirmDelete: boolean;
-  onStartEdit: (secid: string, field: 'quantity' | 'cost_price', value: number) => void;
-  onCommitEdit: () => void;
-  onCancelEdit: () => void;
-  onEditKey: (e: React.KeyboardEvent) => void;
-  onEditValueChange: (value: string) => void;
-  onDelete: (secid: string) => void;
-  onCancelDelete: () => void;
-  onSetPrimary: (secid: string) => void;
+  stock: StockConfig
+  live: StockState | undefined
+  isEditingQty: boolean
+  isEditingCost: boolean
+  editValue: string
+  isConfirmDelete: boolean
+  isHighlighted?: boolean
+  onStartEdit: (secid: string, field: 'quantity' | 'cost_price', value: number) => void
+  onCommitEdit: () => void
+  onEditKey: (e: React.KeyboardEvent) => void
+  onEditValueChange: (value: string) => void
+  onDelete: (secid: string) => void
+  onCancelDelete: () => void
+  onSetPrimary: (secid: string) => void
 }
 
 function fmtNum(n: number, decimals = 2): string {
-  if (n === 0) return '-';
-  return n.toLocaleString('zh-CN', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  if (n === 0) return '-'
+  return n.toLocaleString('zh-CN', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
+  })
 }
 
 function fmtProfit(n: number): string {
-  if (n === 0) return '-';
-  const sign = n > 0 ? '+' : '';
-  return `${sign}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  if (n === 0) return '-'
+  const sign = n > 0 ? '+' : ''
+  return `${sign}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 export function StockRow({
@@ -50,23 +53,27 @@ export function StockRow({
   isEditingCost,
   editValue,
   isConfirmDelete,
+  isHighlighted,
   onStartEdit,
   onCommitEdit,
-  onCancelEdit: _onCancelEdit,
   onEditKey,
   onEditValueChange,
   onDelete,
   onCancelDelete,
-  onSetPrimary,
+  onSetPrimary
 }: StockRowProps) {
-  const currentPrice = live?.price || 0;
-  const profit = stock.quantity > 0 && stock.cost_price > 0 && currentPrice > 0
-    ? (currentPrice - stock.cost_price) * stock.quantity
-    : 0;
+  const currentPrice = live?.price || 0
+  const profit =
+    stock.quantity > 0 && stock.cost_price > 0 && currentPrice > 0
+      ? (currentPrice - stock.cost_price) * stock.quantity
+      : 0
 
   return (
-    <div className={`s-tr ${stock.is_primary ? 's-tr-primary' : ''}`}>
-      <span className="s-td s-td-name" title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}>
+    <div className={`s-tr ${stock.is_primary ? 's-tr-primary' : ''} ${isHighlighted ? 's-tr-highlight' : ''} ${isConfirmDelete ? 's-tr-confirm-delete' : ''}`}>
+      <span
+        className="s-td s-td-name"
+        title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}
+      >
         <span className="s-td-name-text">{stock.name}</span>
         <span className="s-td-name-code">（{stock.secid.split('.')[1] || stock.secid}）</span>
         {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
@@ -78,7 +85,7 @@ export function StockRow({
             <input
               className="s-edit-input"
               value={editValue}
-              onChange={(e) => onEditValueChange(e.target.value)}
+              onChange={e => onEditValueChange(e.target.value)}
               onBlur={onCommitEdit}
               onKeyDown={onEditKey}
               autoFocus
@@ -105,7 +112,7 @@ export function StockRow({
             <input
               className="s-edit-input"
               value={editValue}
-              onChange={(e) => onEditValueChange(e.target.value)}
+              onChange={e => onEditValueChange(e.target.value)}
               onBlur={onCommitEdit}
               onKeyDown={onEditKey}
               autoFocus
@@ -126,31 +133,49 @@ export function StockRow({
         )}
       </span>
 
-      <span className="s-td s-td-num">
-        {currentPrice > 0 ? fmtNum(currentPrice) : '-'}
-      </span>
+      <span className="s-td s-td-num">{currentPrice > 0 ? fmtNum(currentPrice) : '-'}</span>
 
-      <span className={`s-td s-td-num s-profit ${profit > 0 ? 's-profit-up' : profit < 0 ? 's-profit-down' : ''}`}>
+      <span
+        className={`s-td s-td-num s-profit ${profit > 0 ? 's-profit-up' : profit < 0 ? 's-profit-down' : ''}`}
+      >
         {stock.quantity > 0 && stock.cost_price > 0 ? fmtProfit(profit) : '-'}
       </span>
 
       <span className="s-td s-td-act">
         {!stock.is_primary && (
-          <button className="s-link" onClick={() => onSetPrimary(stock.secid)}>主</button>
+          <button className="s-link" onClick={() => onSetPrimary(stock.secid)} title="设为主股票">
+            主
+          </button>
         )}
         {isConfirmDelete ? (
           <>
-            <button className="s-btn-del-confirm" onClick={() => onDelete(stock.secid)}>确认？</button>
-            <button className="s-btn-del-cancel" onClick={onCancelDelete}>取消</button>
+            <button className="s-btn-del-confirm" onClick={() => onDelete(stock.secid)}>
+              确认
+            </button>
+            <button className="s-btn-del-cancel" onClick={onCancelDelete}>
+              取消
+            </button>
           </>
         ) : (
-          <button className="s-btn-del" onClick={() => onDelete(stock.secid)} aria-label={`删除 ${stock.name}`}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          <button
+            className="s-btn-del"
+            onClick={() => onDelete(stock.secid)}
+            aria-label={`删除 ${stock.name}`}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         )}
       </span>
     </div>
-  );
+  )
 }

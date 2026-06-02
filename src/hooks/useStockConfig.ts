@@ -89,7 +89,7 @@ export function useStockConfig() {
   // 错误提示自动消失
   useEffect(() => {
     if (error) {
-      const t = setTimeout(() => setError(''), 4000);
+      const t = setTimeout(() => setError(''), 8000);
       return () => clearTimeout(t);
     }
   }, [error]);

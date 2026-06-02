@@ -5,6 +5,7 @@ import { useInlineEdit } from '../hooks/useInlineEdit';
 import { StockRow } from './settings/StockRow';
 import { EmptyState } from './settings/EmptyState';
 import { Toast } from './settings/Toast';
+import { AddStockDialog } from './settings/AddStockDialog';
 
 export default function Settings() {
   const {
@@ -27,7 +28,6 @@ export default function Settings() {
     searchResults,
     showDropdown,
     newAssetType,
-    dropdownRef,
     handleSearchInput,
     selectSearchResult,
     closeDropdown,
@@ -52,6 +52,13 @@ export default function Settings() {
 
   // 删除确认
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+
+  // 添加弹层
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [dialogError, setDialogError] = useState('');
+
+  // 新增行高亮
+  const [newlyAdded, setNewlyAdded] = useState<string | null>(null);
 
   const primaryStock = useMemo(() => config?.stocks.find(s => s.is_primary), [config]);
 
@@ -104,25 +111,41 @@ export default function Settings() {
   async function handleAdd() {
     if (submitting) return;
     if (!newSecid || !newName) {
-      setError('请搜索并选择');
+      setDialogError('请从搜索结果中选择一只股票');
       return;
     }
     setSubmitting(true);
+    setDialogError('');
     try {
       closeDropdown();
       const qty = parseFloat(newQty) || 0;
       const cost = parseFloat(newCost) || 0;
+      const addedSecid = newSecid;
       await addStock(newSecid, newName, qty, cost, newAssetType);
+      setNewlyAdded(addedSecid);
+      setTimeout(() => setNewlyAdded(null), 1000);
       setNewSecid('');
       setNewName('');
       setNewQty('');
       setNewCost('');
       resetSearch();
+      setShowAddDialog(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : '操作失败');
+      setDialogError(e instanceof Error ? e.message : '操作失败');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // 关闭弹层
+  function handleCloseDialog() {
+    setShowAddDialog(false);
+    resetSearch();
+    setNewSecid('');
+    setNewName('');
+    setNewQty('');
+    setNewCost('');
+    setDialogError('');
   }
 
   if (!config) {
@@ -148,6 +171,17 @@ export default function Settings() {
           {primaryStock && (
             <span className="s-topbar-primary">{primaryStock.name}</span>
           )}
+          <button
+            className="s-topbar-add"
+            onClick={() => setShowAddDialog(true)}
+            aria-label="添加持仓"
+            title="添加持仓"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
         </div>
       </header>
 
@@ -186,7 +220,7 @@ export default function Settings() {
         </div>
 
         {config.stocks.length === 0 ? (
-          <EmptyState />
+          <EmptyState onAdd={() => setShowAddDialog(true)} />
         ) : (
           config.stocks.map((stock) => (
             <StockRow
@@ -197,9 +231,9 @@ export default function Settings() {
               isEditingCost={editing?.secid === stock.secid && editing.field === 'cost_price'}
               editValue={editValue}
               isConfirmDelete={confirmDelete === stock.secid}
+              isHighlighted={newlyAdded === stock.secid}
               onStartEdit={startEdit}
               onCommitEdit={handleCommitEdit}
-              onCancelEdit={cancelEdit}
               onEditKey={handleEditKeyDown}
               onEditValueChange={setEditValue}
               onDelete={handleDelete}
@@ -210,45 +244,24 @@ export default function Settings() {
         )}
       </div>
 
-      {/* 添加行 */}
-      <div className="s-add-row" ref={dropdownRef}>
-        <div className="s-search-wrap">
-          <input
-            type="text"
-            className="s-input s-input-code"
-            placeholder="搜索代码或名称"
-            value={searchQuery}
-            onChange={(e) => {
-              handleSearchInput(e.target.value);
-              setNewSecid(e.target.value);
-            }}
-            onFocus={() => { if (searchResults.length > 0) {/* showDropdown handled by hook */} }}
-          />
-          {showDropdown && searchResults.length > 0 && (
-            <div className="s-dropdown">
-              {searchResults.map((r) => (
-                <div
-                  key={r.secid}
-                  className="s-dropdown-item"
-                  onMouseDown={(e) => { e.preventDefault(); handleSelectSearchResult(r); }}
-                >
-                  <span className="s-dropdown-name">{r.name}</span>
-                  <span className="s-dropdown-code">{r.code}</span>
-                  <span className={`s-dropdown-tag s-tag-${r.asset_type}`}>
-                    {r.asset_type === 'fund' ? '基金' : r.asset_type === 'etf' ? 'ETF' : '股票'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        <input type="text" className="s-input s-input-name" placeholder="名称（自动填充）" value={newName} readOnly />
-        <input type="number" className="s-input s-input-num" placeholder="持有份额" value={newQty} onChange={(e) => setNewQty(e.target.value)} min="0" step="0.01" />
-        <input type="number" className="s-input s-input-num" placeholder="成本价（元/份）" value={newCost} onChange={(e) => setNewCost(e.target.value)} min="0" step="0.001" />
-        <button className="s-btn-add" onClick={handleAdd} disabled={submitting}>
-          {submitting ? '添加中...' : '添加'}
-        </button>
-      </div>
+      <AddStockDialog
+        open={showAddDialog}
+        searchQuery={searchQuery}
+        searchResults={searchResults}
+        showDropdown={showDropdown}
+        newName={newName}
+        newQty={newQty}
+        newCost={newCost}
+        submitting={submitting}
+        error={dialogError}
+        canSubmit={!!newSecid && !!newName}
+        onSearchInput={(val) => { handleSearchInput(val); setNewSecid(''); setNewName(''); setDialogError(''); }}
+        onSelectResult={handleSelectSearchResult}
+        onQtyChange={setNewQty}
+        onCostChange={setNewCost}
+        onSubmit={handleAdd}
+        onClose={handleCloseDialog}
+      />
 
       <Toast
         error={error}

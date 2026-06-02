@@ -449,15 +449,15 @@ fn start_polling(app: AppHandle) {
             if let Some(ref tray) = tray {
                 match trade_status {
                     TradeStatus::Trading => {
-                        let _ = tray.set_title(Some("交易中"));
+                        let _ = tray.set_title(Some("\u{2002}交易中"));
                         let _ = tray.set_tooltip(Some("股票桌宠 - 交易中"));
                     }
                     TradeStatus::Rest => {
-                        let _ = tray.set_title(Some("休市"));
+                        let _ = tray.set_title(Some("\u{2002}休市"));
                         let _ = tray.set_tooltip(Some("股票桌宠 - 交易日休息中"));
                     }
                     TradeStatus::Sleep => {
-                        let _ = tray.set_title(Some("休息"));
+                        let _ = tray.set_title(Some("\u{2002}休息"));
                         let _ = tray.set_tooltip(Some("股票桌宠 - 非交易日"));
                     }
                 }
@@ -478,7 +478,7 @@ fn start_polling(app: AppHandle) {
 
                     if let Some(tray) = tray {
                         let sign = if display.profit_pct >= 0.0 { "+" } else { "" };
-                        let title = format!("{}{:.2}%", sign, display.profit_pct);
+                        let title = format!("\u{2002}{}{:.2}%", sign, display.profit_pct);
                         let tooltip = format!(
                             "{} 盈亏 {:.0}元 ({})",
                             display.name, display.profit, title
@@ -510,7 +510,7 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
 
     TrayIconBuilder::with_id("main-tray")
         .icon(app.default_window_icon().unwrap().clone())
-        .title("--")
+        .title("\u{2002}--")
         .tooltip("股票桌宠 - 加载中...")
         .menu(&menu)
         .on_menu_event(move |app, event| {
@@ -537,7 +537,7 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
                             tauri::WebviewUrl::App("index.html#/settings".into()),
                         )
                         .title("设置")
-                        .inner_size(520.0, 480.0)
+                        .inner_size(560.0, 480.0)
                         .build();
                     }
                 }
