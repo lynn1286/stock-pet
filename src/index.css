@@ -21,41 +21,99 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   background: transparent !important;
 }
 
-@keyframes breathe {
-  0%, 100% { transform: translateY(0) scale(1); }
-  30% { transform: translateY(-2px) scale(1.015); }
-  60% { transform: translateY(-1px) scale(1.008); }
-}
-@keyframes bob {
+/* ---- 涨跌动画 ---- */
+
+/* 大涨 - 欢快弹跳 */
+@keyframes big-up {
   0%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-4px) rotate(-3deg); }
-  75% { transform: translateY(-4px) rotate(3deg); }
+  20% { transform: translateY(-6px) rotate(-5deg); }
+  40% { transform: translateY(-8px) rotate(5deg); }
+  60% { transform: translateY(-4px) rotate(-3deg); }
+  80% { transform: translateY(-6px) rotate(3deg); }
 }
-@keyframes shake {
-  0%, 100% { transform: translateX(0) rotate(0deg); }
-  20% { transform: translateX(-3px) rotate(-4deg); }
-  40% { transform: translateX(3px) rotate(4deg); }
-  60% { transform: translateX(-2px) rotate(-2deg); }
-  80% { transform: translateX(2px) rotate(2deg); }
+
+/* 小涨 - 轻柔上浮 */
+@keyframes small-up {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
 }
-@keyframes sleep-breathe {
+
+/* 小幅波动 - 平静呼吸 */
+@keyframes flat {
   0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(2px) scale(0.98); }
+  30% { transform: translateY(-1px) scale(1.008); }
+  60% { transform: translateY(-1px) scale(1.005); }
 }
-@keyframes coffee-sway {
-  0%, 100% { transform: rotate(-2deg); }
+
+/* 小跌 - 微微下垂 */
+@keyframes small-down {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(1px) rotate(-1deg); }
+}
+
+/* 大跌 - 紧张摇晃 */
+@keyframes big-down {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  20% { transform: translateX(-2px) rotate(-3deg); }
+  40% { transform: translateX(2px) rotate(3deg); }
+  60% { transform: translateX(-1px) rotate(-1deg); }
+  80% { transform: translateX(1px) rotate(1deg); }
+}
+
+/* 暴崩 - 剧烈颤抖 */
+@keyframes crash {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-3px, 1px) rotate(-4deg); }
+  20% { transform: translate(3px, -1px) rotate(4deg); }
+  30% { transform: translate(-4px, 2px) rotate(-5deg); }
+  40% { transform: translate(4px, 0px) rotate(3deg); }
+  50% { transform: translate(-2px, 1px) rotate(-3deg); }
+  60% { transform: translate(3px, -2px) rotate(4deg); }
+  70% { transform: translate(-3px, 1px) rotate(-4deg); }
+  80% { transform: translate(2px, -1px) rotate(2deg); }
+  90% { transform: translate(-1px, 1px) rotate(-2deg); }
+}
+
+/* 大幅异动 - 狂暴抽搐 */
+@keyframes wild {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  10% { transform: translate(-4px, -2px) rotate(-6deg) scale(1.03); }
+  20% { transform: translate(5px, 1px) rotate(5deg) scale(0.97); }
+  30% { transform: translate(-3px, 3px) rotate(-4deg) scale(1.04); }
+  40% { transform: translate(4px, -1px) rotate(6deg) scale(0.96); }
+  50% { transform: translate(-5px, -2px) rotate(-5deg) scale(1.02); }
+  60% { transform: translate(3px, 2px) rotate(4deg) scale(0.98); }
+  70% { transform: translate(-2px, -3px) rotate(-6deg) scale(1.03); }
+  80% { transform: translate(4px, 1px) rotate(5deg) scale(0.97); }
+  90% { transform: translate(-3px, 2px) rotate(-3deg) scale(1.01); }
+}
+
+/* 休息日 - 缓慢呼吸 */
+@keyframes sleep {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(2px) scale(0.97); }
+}
+
+/* 开盘前/收盘后 - 轻微摇摆 */
+@keyframes idle {
+  0%, 100% { transform: rotate(0deg); }
   50% { transform: rotate(2deg); }
 }
+
 @keyframes sparkle {
   0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
   50% { opacity: 1; transform: scale(1) rotate(180deg); }
 }
 
-.anim-breathe { animation: breathe 3s ease-in-out infinite; }
-.anim-bob { animation: bob 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) infinite; }
-.anim-shake { animation: shake 0.5s ease-in-out infinite; }
-.anim-sleep { animation: sleep-breathe 4s ease-in-out infinite; }
-.anim-coffee { animation: coffee-sway 3s ease-in-out infinite; }
+.anim-big-up    { animation: big-up 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) infinite; }
+.anim-small-up  { animation: small-up 2.5s ease-in-out infinite; }
+.anim-flat      { animation: flat 3s ease-in-out infinite; }
+.anim-small-down { animation: small-down 3s ease-in-out infinite; }
+.anim-big-down  { animation: big-down 0.6s ease-in-out infinite; }
+.anim-crash     { animation: crash 0.35s ease-in-out infinite; }
+.anim-wild      { animation: wild 0.3s ease-in-out infinite; }
+.anim-sleep     { animation: sleep 4s ease-in-out infinite; }
+.anim-idle      { animation: idle 3s ease-in-out infinite; }
 
 .pet-shell {
   width: 100%;
@@ -232,7 +290,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   padding: 6px 16px;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
-  min-width: 700px;
+  min-width: 580px;
 }
 
 .s-th {
@@ -241,8 +299,8 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   color: var(--ink3);
 }
 
-.s-th-name { width: 200px; flex-shrink: 0; }
-.s-th-num { width: 100px; flex-shrink: 0; text-align: right; }
+.s-th-name { width: 140px; flex-shrink: 0; }
+.s-th-num { width: 80px; flex-shrink: 0; text-align: right; }
 .s-th-act  { width: 60px; flex-shrink: 0; text-align: right; }
 
 .s-tr {
@@ -252,7 +310,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   min-height: 40px;
   border-bottom: 1px solid #f2f2f2;
   transition: background 0.1s;
-  min-width: 700px;
+  min-width: 580px;
 }
 
 .s-tr:last-child { border-bottom: none; }
@@ -264,7 +322,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 }
 
 .s-td-name {
-  width: 200px;
+  width: 140px;
   flex-shrink: 0;
   font-weight: 500;
   color: var(--ink);
@@ -274,7 +332,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 }
 
 .s-td-num {
-  width: 100px;
+  width: 80px;
   flex-shrink: 0;
   text-align: right;
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
