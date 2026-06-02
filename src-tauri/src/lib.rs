@@ -205,6 +205,19 @@ pub fn run() {
             // 设置背景透明
             window.set_background_color(Some(tauri_utils::config::Color(0, 0, 0, 0))).ok();
 
+            // 将窗口移动到屏幕右下角
+            if let Ok(Some(monitor)) = window.primary_monitor() {
+                let screen_size = monitor.size();
+                let screen_pos = monitor.position();
+                let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(80, 80));
+                let margin = 20; // 距离边缘的间距
+
+                let x = screen_pos.x + (screen_size.width as i32) - (window_size.width as i32) - margin;
+                let y = screen_pos.y + (screen_size.height as i32) - (window_size.height as i32) - margin;
+
+                window.set_position(tauri::PhysicalPosition::new(x, y)).ok();
+            }
+
             start_polling(app.handle().clone());
             Ok(())
         })

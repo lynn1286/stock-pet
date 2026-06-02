@@ -14,8 +14,8 @@
     "windows": [
       {
         "title": "Stock Pet",
-        "width": 120,
-        "height": 140,
+        "width": 80,
+        "height": 80,
         "resizable": false,
         "fullscreen": false,
         "decorations": false,
