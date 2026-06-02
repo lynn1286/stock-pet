@@ -1,7 +1,7 @@
 [package]
 name = "stock-pet"
 version = "0.1.0"
-description = "A stock monitoring desktop pet"
+description = "会盯盘的桌宠"
 authors = ["you"]
 license = "MIT"
 repository = ""

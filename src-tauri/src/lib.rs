@@ -229,12 +229,42 @@ fn start_polling(app: AppHandle) {
             // 发送交易状态事件，前端根据状态切换桌宠形象
             let _ = app.emit("trade-status", &trade_status);
 
+            // 获取托盘并更新状态
+            let tray = app.tray_by_id("main-tray");
+
+            if let Some(ref tray) = tray {
+                match trade_status {
+                    TradeStatus::Trading => {
+                        let _ = tray.set_title(Some("交易中"));
+                        let _ = tray.set_tooltip(Some("股票桌宠 - 交易中"));
+                    }
+                    TradeStatus::Rest => {
+                        let _ = tray.set_title(Some("休市"));
+                        let _ = tray.set_tooltip(Some("股票桌宠 - 交易日休息中"));
+                    }
+                    TradeStatus::Sleep => {
+                        let _ = tray.set_title(Some("休息"));
+                        let _ = tray.set_tooltip(Some("股票桌宠 - 非交易日"));
+                    }
+                }
+            }
+
+            let app_state = app.state::<AppState>();
+
             match trade_status {
                 TradeStatus::Trading => {
                     // 交易时段：获取实时数据
                     match fetch_stock(stock_secid).await {
                         Ok(state) => {
-                            let app_state = app.state::<AppState>();
+                            // 更新托盘显示涨幅
+                            if let Some(tray) = tray {
+                                let sign = if state.change_pct >= 0.0 { "+" } else { "" };
+                                let title = format!("{}{:.2}%", sign, state.change_pct);
+                                let tooltip = format!("{} {:.2} 元 ({})", state.name, state.price, title);
+                                let _ = tray.set_title(Some(&title));
+                                let _ = tray.set_tooltip(Some(&tooltip));
+                            }
+
                             *app_state.stock_state.lock().unwrap() = state.clone();
                             let _ = app.emit("stock-state", state);
                         }
@@ -272,8 +302,10 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
 
     let menu = Menu::with_items(app, &[&show_item, &hide_item, &quit_item])?;
 
-    let _tray = TrayIconBuilder::new()
+    TrayIconBuilder::with_id("main-tray")
         .icon(app.default_window_icon().unwrap().clone())
+        .title("--")  // macOS: 图标旁显示文字
+        .tooltip("股票桌宠 - 加载中...")
         .menu(&menu)
         .on_menu_event(move |app, event| {
             match event.id.as_ref() {
