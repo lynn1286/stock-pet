@@ -54,6 +54,7 @@ export function useStockSearch() {
   }, []);
 
   const selectSearchResult = useCallback((result: SearchResult) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
     setSearchQuery(result.code);
     setNewAssetType(result.asset_type);
     setSearchResults([]);

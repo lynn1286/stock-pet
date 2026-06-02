@@ -156,7 +156,7 @@ export function AddStockDialog({
               value={newCost}
               onChange={(e) => onCostChange(e.target.value)}
               min="0"
-              step="0.001"
+              step="0.0001"
             />
           </label>
         </div>

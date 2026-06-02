@@ -127,7 +127,7 @@ export function StockRow({
               autoFocus
               type="number"
               min="0"
-              step="0.001"
+              step="0.0001"
               aria-label="编辑成本价"
             />
           </span>
@@ -137,7 +137,7 @@ export function StockRow({
             onClick={() => onStartEdit(stock.secid, 'cost_price', stock.cost_price)}
             title="点击编辑"
           >
-            {stock.cost_price > 0 ? fmtNum(stock.cost_price, 3) : '点击填写'}
+            {stock.cost_price > 0 ? fmtNum(stock.cost_price, 4) : '点击填写'}
           </span>
         )}
       </td>
