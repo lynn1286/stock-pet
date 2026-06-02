@@ -290,7 +290,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   padding: 6px 16px;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
-  min-width: 580px;
+  min-width: 650px;
 }
 
 .s-th {
@@ -300,8 +300,8 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 }
 
 .s-th-name { width: 140px; flex-shrink: 0; }
-.s-th-num { width: 80px; flex-shrink: 0; text-align: right; }
-.s-th-act  { width: 60px; flex-shrink: 0; text-align: right; }
+.s-th-num { width: 90px; flex-shrink: 0; text-align: right; }
+.s-th-act  { width: 90px; flex-shrink: 0; text-align: right; }
 
 .s-tr {
   display: flex;
@@ -310,7 +310,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   min-height: 40px;
   border-bottom: 1px solid #f2f2f2;
   transition: background 0.1s;
-  min-width: 580px;
+  min-width: 650px;
 }
 
 .s-tr:last-child { border-bottom: none; }
@@ -332,7 +332,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 }
 
 .s-td-num {
-  width: 80px;
+  width: 90px;
   flex-shrink: 0;
   text-align: right;
   font-family: 'JetBrains Mono', 'SF Mono', monospace;
@@ -341,7 +341,7 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
 }
 
 .s-td-act {
-  width: 60px;
+  width: 90px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -514,6 +514,57 @@ html:has(.pet-shell), html:has(.pet-shell) body, html:has(.pet-shell) #root {
   font-size: 11px;
   color: var(--ink3);
 }
+
+.s-dropdown-tag {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  margin-left: 4px;
+}
+
+.s-tag-fund {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.s-tag-etf {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.s-tag-stock {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.s-btn-del-confirm {
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.s-btn-del-confirm:hover { background: #dc2626; }
+
+.s-btn-del-cancel {
+  border: none;
+  background: var(--bg2);
+  color: var(--ink2);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-left: 2px;
+}
+
+.s-btn-del-cancel:hover { background: var(--bd); }
 
 .s-btn-add {
   padding: 6px 14px;

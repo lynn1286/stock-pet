@@ -11,6 +11,20 @@ use chrono::{Local, Datelike, Timelike, Weekday};
 
 // ========== 数据结构 ==========
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum AssetType {
+    Stock,
+    Etf,
+    Fund,
+}
+
+impl Default for AssetType {
+    fn default() -> Self {
+        AssetType::Stock
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StockConfig {
     pub secid: String,
@@ -20,6 +34,8 @@ pub struct StockConfig {
     pub quantity: f64,
     #[serde(default)]
     pub cost_price: f64,
+    #[serde(default)]
+    pub asset_type: AssetType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,7 +145,7 @@ fn get_trade_status() -> TradeStatus {
 
 // ========== 数据获取 ==========
 
-async fn fetch_stock(secid: &str) -> Result<(f64, f64, String, String), String> {
+async fn fetch_stock_price(secid: &str) -> Result<(f64, f64, String, String), String> {
     let url = format!(
         "http://push2.eastmoney.com/api/qt/stock/get?secid={}&fields=f57,f58,f43,f170,f171",
         secid
@@ -142,6 +158,28 @@ async fn fetch_stock(secid: &str) -> Result<(f64, f64, String, String), String> 
     let change_pct = data.get("f170").and_then(|v| v.as_f64()).unwrap_or(0.0) / 100.0;
     let name = data.get("f58").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let symbol = data.get("f57").and_then(|v| v.as_str()).unwrap_or("").to_string();
+
+    Ok((price, change_pct, name, symbol))
+}
+
+async fn fetch_fund_price(secid: &str) -> Result<(f64, f64, String, String), String> {
+    // secid 格式: "0.000001"，提取基金代码
+    let code = secid.split('.').last().unwrap_or(secid);
+    let url = format!("http://fundgz.1234567.com.cn/js/{}.js", code);
+    let resp = reqwest::get(&url).await.map_err(|e| format!("请求失败: {}", e))?;
+    let text = resp.text().await.map_err(|e| format!("读取失败: {}", e))?;
+
+    // 返回格式: jsonpgz({"fundcode":"000001","name":"...","gsz":"1.23","gszzl":"0.45",...});
+    let json_str = text
+        .strip_prefix("jsonpgz(")
+        .and_then(|s| s.strip_suffix(");"))
+        .ok_or("解析格式错误")?;
+    let data: serde_json::Value = serde_json::from_str(json_str).map_err(|e| format!("JSON解析失败: {}", e))?;
+
+    let price = data.get("gsz").and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+    let change_pct = data.get("gszzl").and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
+    let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let symbol = data.get("fundcode").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
     Ok((price, change_pct, name, symbol))
 }
@@ -178,10 +216,17 @@ fn build_stock_state(config: &StockConfig, price: f64, change_pct: f64, name: St
     }
 }
 
+async fn fetch_price(stock: &StockConfig) -> Result<(f64, f64, String, String), String> {
+    match stock.asset_type {
+        AssetType::Fund => fetch_fund_price(&stock.secid).await,
+        _ => fetch_stock_price(&stock.secid).await,
+    }
+}
+
 async fn fetch_all_stocks(stocks: &[StockConfig]) -> Vec<StockState> {
     let mut results = Vec::new();
     for stock in stocks {
-        match fetch_stock(&stock.secid).await {
+        match fetch_price(stock).await {
             Ok((price, change_pct, name, symbol)) => {
                 results.push(build_stock_state(stock, price, change_pct, name, symbol));
             }
@@ -254,6 +299,7 @@ pub struct SearchResult {
     pub name: String,
     pub code: String,
     pub market: String,
+    pub asset_type: AssetType,
 }
 
 async fn search_stocks_api(query: &str) -> Result<Vec<SearchResult>, String> {
@@ -287,11 +333,22 @@ async fn search_stocks_api(query: &str) -> Result<Vec<SearchResult>, String> {
         let market = if market_raw == "1" { "1" } else { "0" };
         let secid = format!("{}.{}", market, code);
 
+        // JYS=OTCFUND 是场外基金，用 fundgz 拉净值；其余用 push2 拉行情
+        let jys = item.get("JYS").and_then(|v| v.as_str()).unwrap_or("");
+        let asset_type = if jys == "OTCFUND" {
+            AssetType::Fund
+        } else if stock_type.contains("ETF") {
+            AssetType::Etf
+        } else {
+            AssetType::Stock
+        };
+
         results.push(SearchResult {
             secid,
             name,
             code,
             market: market_raw,
+            asset_type,
         });
     }
 
@@ -324,13 +381,13 @@ async fn search_stock(query: String) -> Result<Vec<SearchResult>, String> {
 }
 
 #[tauri::command]
-fn add_stock(secid: String, name: String, quantity: f64, cost_price: f64, state: tauri::State<AppState>) -> Result<(), String> {
+fn add_stock(secid: String, name: String, quantity: f64, cost_price: f64, asset_type: AssetType, state: tauri::State<AppState>) -> Result<(), String> {
     let mut config = state.config.lock().unwrap();
     if config.stocks.iter().any(|s| s.secid == secid) {
-        return Err("股票已存在".to_string());
+        return Err("已存在".to_string());
     }
     let is_primary = config.stocks.is_empty();
-    config.stocks.push(StockConfig { secid, name, is_primary, quantity, cost_price });
+    config.stocks.push(StockConfig { secid, name, is_primary, quantity, cost_price, asset_type });
     save_config(&config);
     Ok(())
 }

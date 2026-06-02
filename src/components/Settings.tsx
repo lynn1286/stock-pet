@@ -2,12 +2,15 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
+type AssetType = 'stock' | 'etf' | 'fund';
+
 interface StockConfig {
   secid: string;
   name: string;
   is_primary: boolean;
   quantity: number;
   cost_price: number;
+  asset_type: AssetType;
 }
 
 interface StockState {
@@ -23,6 +26,7 @@ interface SearchResult {
   name: string;
   code: string;
   market: string;
+  asset_type: AssetType;
 }
 
 type DisplayMode = 'primary' | 'summary';
@@ -50,6 +54,12 @@ export default function Settings() {
   const [showDropdown, setShowDropdown] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 资产类型（仅用于区分 API 数据源，对用户透明）
+  const [newAssetType, setNewAssetType] = useState<AssetType>('stock');
+
+  // 删除确认（轻量：点击后按钮变"确认？"）
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   useEffect(() => {
     loadConfig();
@@ -123,21 +133,22 @@ export default function Settings() {
     setNewSecid(result.secid);
     setNewName(result.name);
     setSearchQuery(result.code);
+    setNewAssetType(result.asset_type);
     setSearchResults([]);
     setShowDropdown(false);
   }
 
   async function handleAdd() {
-    if (!newSecid || !newName) { setError('请搜索并选择股票'); return; }
+    if (!newSecid || !newName) { setError('请搜索并选择'); return; }
     const qty = parseFloat(newQty) || 0;
     const cost = parseFloat(newCost) || 0;
     try {
       setShowDropdown(false);
-      await invoke('add_stock', { secid: newSecid, name: newName, quantity: qty, costPrice: cost });
+      await invoke('add_stock', { secid: newSecid, name: newName, quantity: qty, costPrice: cost, assetType: newAssetType });
       setNewSecid(''); setNewName(''); setNewQty(''); setNewCost(''); setSearchQuery('');
+      setNewAssetType('stock');
       setError(''); setSuccess('已添加');
       await loadConfig();
-      // 立即刷新行情
       await refreshLivePrices();
     } catch (e) { setError(String(e)); }
   }
@@ -151,12 +162,18 @@ export default function Settings() {
     } catch {}
   }
 
-  async function handleRemove(secid: string) {
-    try {
-      await invoke('remove_stock', { secid });
-      setSuccess('已删除');
-      await loadConfig();
-    } catch (e) { setError(String(e)); }
+  function handleRemove(secid: string) {
+    if (confirmDelete === secid) {
+      // 第二次点击，执行删除
+      invoke('remove_stock', { secid }).then(async () => {
+        setConfirmDelete(null);
+        setSuccess('已删除');
+        await loadConfig();
+      }).catch(e => setError(String(e)));
+    } else {
+      // 第一次点击，进入确认状态
+      setConfirmDelete(secid);
+    }
   }
 
   async function handleSetPrimary(secid: string) {
@@ -261,7 +278,7 @@ export default function Settings() {
       <div className="s-table">
         <div className="s-thead">
           <span className="s-th s-th-name">名称</span>
-          <span className="s-th s-th-num">数量</span>
+          <span className="s-th s-th-num">份额</span>
           <span className="s-th s-th-num">成本价</span>
           <span className="s-th s-th-num">现价</span>
           <span className="s-th s-th-num">盈亏</span>
@@ -282,24 +299,27 @@ export default function Settings() {
 
             return (
               <div key={stock.secid} className={`s-tr ${stock.is_primary ? 's-tr-primary' : ''}`}>
-                <span className="s-td s-td-name" title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}>{stock.name}（{stock.secid.split('.')[1] || stock.secid}）</span>
+                <span className="s-td s-td-name" title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}>
+                  {stock.name}（{stock.secid.split('.')[1] || stock.secid}）
+                  {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
+                </span>
 
                 <span className="s-td s-td-num">
                   {isEditingQty ? (
-                    <input className="s-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={commitEdit} onKeyDown={handleEditKey} autoFocus type="number" min="0" />
+                    <input className="s-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={commitEdit} onKeyDown={handleEditKey} autoFocus type="number" min="0" step="0.01" />
                   ) : (
                     <span className={`s-editable ${stock.quantity === 0 ? 's-editable-empty' : ''}`} onClick={() => startEdit(stock.secid, 'quantity', stock.quantity)} title="点击编辑">
-                      {stock.quantity > 0 ? fmtNum(stock.quantity, 0) : '点击填写'}
+                      {stock.quantity > 0 ? fmtNum(stock.quantity, 2) : '点击填写'}
                     </span>
                   )}
                 </span>
 
                 <span className="s-td s-td-num">
                   {isEditingCost ? (
-                    <input className="s-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={commitEdit} onKeyDown={handleEditKey} autoFocus type="number" min="0" step="0.01" />
+                    <input className="s-edit-input" value={editValue} onChange={(e) => setEditValue(e.target.value)} onBlur={commitEdit} onKeyDown={handleEditKey} autoFocus type="number" min="0" step="0.001" />
                   ) : (
                     <span className={`s-editable ${stock.cost_price === 0 ? 's-editable-empty' : ''}`} onClick={() => startEdit(stock.secid, 'cost_price', stock.cost_price)} title="点击编辑">
-                      {stock.cost_price > 0 ? fmtNum(stock.cost_price) : '点击填写'}
+                      {stock.cost_price > 0 ? fmtNum(stock.cost_price, 3) : '点击填写'}
                     </span>
                   )}
                 </span>
@@ -318,11 +338,18 @@ export default function Settings() {
                   {!stock.is_primary && (
                     <button className="s-link" onClick={() => handleSetPrimary(stock.secid)}>主</button>
                   )}
-                  <button className="s-btn-del" onClick={() => handleRemove(stock.secid)} aria-label={`删除 ${stock.name}`}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
-                  </button>
+                  {confirmDelete === stock.secid ? (
+                    <>
+                      <button className="s-btn-del-confirm" onClick={() => handleRemove(stock.secid)}>确认？</button>
+                      <button className="s-btn-del-cancel" onClick={() => setConfirmDelete(null)}>取消</button>
+                    </>
+                  ) : (
+                    <button className="s-btn-del" onClick={() => handleRemove(stock.secid)} aria-label={`删除 ${stock.name}`}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
                 </span>
               </div>
             );
@@ -351,14 +378,17 @@ export default function Settings() {
                 >
                   <span className="s-dropdown-name">{r.name}</span>
                   <span className="s-dropdown-code">{r.code}</span>
+                  <span className={`s-dropdown-tag s-tag-${r.asset_type}`}>
+                    {r.asset_type === 'fund' ? '基金' : r.asset_type === 'etf' ? 'ETF' : '股票'}
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </div>
         <input type="text" className="s-input s-input-name" placeholder="名称（自动填充）" value={newName} readOnly />
-        <input type="number" className="s-input s-input-num" placeholder="数量" value={newQty} onChange={(e) => setNewQty(e.target.value)} min="0" />
-        <input type="number" className="s-input s-input-num" placeholder="成本价" value={newCost} onChange={(e) => setNewCost(e.target.value)} min="0" step="0.01" />
+        <input type="number" className="s-input s-input-num" placeholder="持有份额" value={newQty} onChange={(e) => setNewQty(e.target.value)} min="0" step="0.01" />
+        <input type="number" className="s-input s-input-num" placeholder="成本价（元/份）" value={newCost} onChange={(e) => setNewCost(e.target.value)} min="0" step="0.001" />
         <button className="s-btn-add" onClick={handleAdd}>添加</button>
       </div>
 
