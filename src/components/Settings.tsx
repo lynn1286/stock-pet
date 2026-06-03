@@ -6,6 +6,7 @@ import { StockRow } from './settings/StockRow';
 import { EmptyState } from './settings/EmptyState';
 import { Toast } from './settings/Toast';
 import { AddStockDialog } from './settings/AddStockDialog';
+import { SettingsDialog } from './settings/SettingsDialog';
 
 export default function Settings() {
   const {
@@ -58,6 +59,9 @@ export default function Settings() {
   // 添加弹层
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogError, setDialogError] = useState('');
+
+  // 设置弹层
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
 
   // 新增行高亮
   const [newlyAdded, setNewlyAdded] = useState<string | null>(null);
@@ -116,12 +120,20 @@ export default function Settings() {
       setDialogError('请从搜索结果中选择一只股票');
       return;
     }
+    const amount = parseFloat(newAmount) || 0;
+    if (amount <= 0) {
+      setDialogError('请输入持有金额');
+      return;
+    }
+    const ret = parseFloat(newReturn) || 0;
+    if (ret >= amount) {
+      setDialogError('持有收益不能大于等于持有金额');
+      return;
+    }
     setSubmitting(true);
     setDialogError('');
     try {
       closeDropdown();
-      const amount = parseFloat(newAmount) || 0;
-      const ret = parseFloat(newReturn) || 0;
       let currentPrice = liveStocks.get(newSecid)?.price || 0;
       if (currentPrice <= 0) {
         try {
@@ -133,11 +145,6 @@ export default function Settings() {
         }
       }
       const totalCost = amount - ret;
-      if (totalCost <= 0) {
-        setDialogError('持有收益不能大于等于持有金额');
-        setSubmitting(false);
-        return;
-      }
       const qty = amount / currentPrice;
       const cost = totalCost / qty;
       const addedSecid = newSecid;
@@ -192,6 +199,17 @@ export default function Settings() {
             <span className="s-topbar-primary">{primaryStock.name}</span>
           )}
           <button
+            className="s-topbar-icon-btn"
+            onClick={() => setShowSettingsDialog(true)}
+            aria-label="设置"
+            title="设置"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+          <button
             className="s-topbar-add"
             onClick={() => setShowAddDialog(true)}
             aria-label="添加持仓"
@@ -204,48 +222,6 @@ export default function Settings() {
           </button>
         </div>
       </header>
-
-      {/* 模式切换 */}
-      <div className="s-mode-bar">
-        <span className="s-mode-label">桌宠显示</span>
-        <div className="s-seg" role="radiogroup">
-          <button
-            className={`s-seg-btn ${config.display_mode === 'primary' ? 'on' : ''}`}
-            role="radio"
-            aria-checked={config.display_mode === 'primary'}
-            onClick={() => setDisplayMode('primary')}
-          >
-            主股票盈亏
-          </button>
-          <button
-            className={`s-seg-btn ${config.display_mode === 'summary' ? 'on' : ''}`}
-            role="radio"
-            aria-checked={config.display_mode === 'summary'}
-            onClick={() => setDisplayMode('summary')}
-          >
-            总持仓盈亏
-          </button>
-        </div>
-        <span className="s-mode-label" style={{ marginLeft: 'auto' }}>托盘</span>
-        <div className="s-seg" role="radiogroup">
-          <button
-            className={`s-seg-btn ${config.tray_display === 'amount' ? 'on' : ''}`}
-            role="radio"
-            aria-checked={config.tray_display === 'amount'}
-            onClick={() => setTrayDisplay('amount')}
-          >
-            金额
-          </button>
-          <button
-            className={`s-seg-btn ${config.tray_display === 'pct' ? 'on' : ''}`}
-            role="radio"
-            aria-checked={config.tray_display === 'pct'}
-            onClick={() => setTrayDisplay('pct')}
-          >
-            收益率
-          </button>
-        </div>
-      </div>
 
       {/* 持仓表格 */}
       <table className="s-table">
@@ -293,6 +269,17 @@ export default function Settings() {
         )}
       </table>
 
+      <SettingsDialog
+        open={showSettingsDialog}
+        displayMode={config.display_mode}
+        trayDisplay={config.tray_display}
+        stocks={config.stocks}
+        onDisplayModeChange={setDisplayMode}
+        onTrayDisplayChange={setTrayDisplay}
+        onSetPrimary={setPrimary}
+        onClose={() => setShowSettingsDialog(false)}
+      />
+
       <AddStockDialog
         open={showAddDialog}
         searchQuery={searchQuery}
@@ -303,7 +290,7 @@ export default function Settings() {
         newReturn={newReturn}
         submitting={submitting}
         error={dialogError}
-        canSubmit={!!newSecid && !!newName}
+        canSubmit={!!newSecid && !!newName && !!newAmount}
         onSearchInput={(val) => { handleSearchInput(val); setNewSecid(''); setNewName(''); setNewAmount(''); setNewReturn(''); setDialogError(''); }}
         onSelectResult={handleSelectSearchResult}
         onAmountChange={setNewAmount}

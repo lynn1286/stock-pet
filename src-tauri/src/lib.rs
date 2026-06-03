@@ -287,20 +287,19 @@ fn calc_display_state(stocks: &[StockState], mode: &DisplayMode, config: &AppCon
             stocks[0].clone()
         }
         DisplayMode::Summary => {
-            let total_profit: f64 = stocks.iter().map(|s| s.profit).sum();
             let total_daily_profit: f64 = stocks.iter().map(|s| s.daily_profit).sum();
             let total_cost: f64 = stocks.iter().map(|s| s.cost_value).sum();
             let total_market: f64 = stocks.iter().map(|s| s.market_value).sum();
-            let total_pct = if total_cost > 0.0 {
-                (total_market - total_cost) / total_cost * 100.0
+            let daily_pct = if total_market > 0.0 {
+                total_daily_profit / total_market * 100.0
             } else {
                 0.0
             };
-            let status = if total_profit > 0.01 { "up" } else if total_profit < -0.01 { "down" } else { "flat" };
+            let status = if total_daily_profit > 0.01 { "up" } else if total_daily_profit < -0.01 { "down" } else { "flat" };
 
             StockState {
                 price: 0.0,
-                change_pct: total_pct,
+                change_pct: daily_pct,
                 name: format!("{}只股票", stocks.len()),
                 symbol: "summary".to_string(),
                 secid: "summary".to_string(),
@@ -309,8 +308,8 @@ fn calc_display_state(stocks: &[StockState], mode: &DisplayMode, config: &AppCon
                 cost_price: 0.0,
                 market_value: total_market,
                 cost_value: total_cost,
-                profit: total_profit,
-                profit_pct: total_pct,
+                profit: total_daily_profit,
+                profit_pct: daily_pct,
                 daily_profit: total_daily_profit,
             }
         }
@@ -384,10 +383,13 @@ async fn search_stocks_api(query: &str) -> Result<Vec<SearchResult>, String> {
 // ========== Tauri 命令 ==========
 
 #[tauri::command]
-async fn refresh_prices(state: tauri::State<'_, AppState>) -> Result<Vec<StockState>, String> {
+async fn refresh_prices(state: tauri::State<'_, AppState>, app: AppHandle) -> Result<Vec<StockState>, String> {
     let config = state.config.lock().unwrap().clone();
     let stocks = fetch_all_stocks(&config.stocks).await;
     *state.stocks_state.lock().unwrap() = stocks.clone();
+    let display = calc_display_state(&stocks, &config.display_mode, &config);
+    let _ = app.emit("stock-state", &display);
+    let _ = app.emit("stocks-update", &stocks);
     Ok(stocks)
 }
 
@@ -470,10 +472,15 @@ fn set_primary(secid: String, state: tauri::State<AppState>) -> Result<(), Strin
 }
 
 #[tauri::command]
-fn set_display_mode(mode: DisplayMode, state: tauri::State<AppState>) -> Result<(), String> {
-    let mut config = state.config.lock().unwrap();
-    config.display_mode = mode;
-    save_config(&config);
+fn set_display_mode(mode: DisplayMode, state: tauri::State<AppState>, app: AppHandle) -> Result<(), String> {
+    {
+        let mut config = state.config.lock().unwrap();
+        config.display_mode = mode;
+        save_config(&config);
+    }
+    let config = state.config.lock().unwrap().clone();
+    let stocks = state.stocks_state.lock().unwrap().clone();
+    refresh_tray(&app, &stocks, &config);
     Ok(())
 }
 
@@ -540,34 +547,30 @@ fn start_polling(app: AppHandle) {
 
             let app_state = app.state::<AppState>();
 
-            match trade_status {
+            let (stocks, config) = match trade_status {
                 TradeStatus::Trading => {
                     let config = app_state.config.lock().unwrap().clone();
                     let stocks = fetch_all_stocks(&config.stocks).await;
-
                     *app_state.stocks_state.lock().unwrap() = stocks.clone();
                     let _ = app.emit("stocks-update", &stocks);
-
-                    let display = calc_display_state(&stocks, &config.display_mode, &config);
-                    let _ = app.emit("stock-state", &display);
-
-                    refresh_tray(&app, &stocks, &config);
-
-                    sleep(Duration::from_secs(10)).await;
+                    (stocks, config)
                 }
-                TradeStatus::Rest => {
+                _ => {
                     let config = app_state.config.lock().unwrap().clone();
                     let stocks = app_state.stocks_state.lock().unwrap().clone();
-                    refresh_tray(&app, &stocks, &config);
-                    sleep(Duration::from_secs(30)).await;
+                    (stocks, config)
                 }
-                TradeStatus::Sleep => {
-                    let config = app_state.config.lock().unwrap().clone();
-                    let stocks = app_state.stocks_state.lock().unwrap().clone();
-                    refresh_tray(&app, &stocks, &config);
-                    sleep(Duration::from_secs(30)).await;
-                }
-            }
+            };
+
+            let display = calc_display_state(&stocks, &config.display_mode, &config);
+            let _ = app.emit("stock-state", &display);
+            refresh_tray(&app, &stocks, &config);
+
+            let interval = match trade_status {
+                TradeStatus::Trading => Duration::from_secs(10),
+                _ => Duration::from_secs(30),
+            };
+            sleep(interval).await;
         }
     });
 }
