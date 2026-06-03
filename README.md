@@ -51,6 +51,15 @@ npm run tauri build
 
 推送到 `main` 分支时，GitHub Actions 自动在 macOS（Intel + Apple Silicon）和 Windows 上构建。构建完成后，在 Actions 页面对应运行记录的 **Artifacts** 区域下载安装包。
 
+## 数据目录
+
+持仓和配置保存在 `config.json`，路径因平台而异：
+
+| 平台 | 路径 |
+|---|---|
+| macOS | `~/Library/Application Support/stock-pet/config.json` |
+| Windows | `C:\Users\<用户名>\AppData\Roaming\stock-pet\config.json` |
+
 ## 技术栈
 
 | 层 | 技术 |
