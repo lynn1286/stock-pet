@@ -22,7 +22,7 @@ jobs:
             args: ''
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-            args: '--config src-tauri/tauri.windows.conf.json'
+            args: ''
 
     runs-on: ${{ matrix.platform }}
 

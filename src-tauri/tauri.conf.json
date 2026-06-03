@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "会盯盘的桌宠",
+  "productName": "StockPet",
   "version": "0.1.0",
   "identifier": "com.stock-pet.app",
   "build": {
@@ -13,7 +13,7 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Stock Pet",
+        "title": "会盯盘的桌宠",
         "width": 80,
         "height": 80,
         "resizable": false,
