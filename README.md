@@ -19,13 +19,27 @@
 
 ## 安装
 
-前往 [GitHub Releases](../../releases) 下载对应平台的安装包：
+前往 [GitHub Releases](../../releases) 下载最新版本：
 
-- **macOS**：下载 `.dmg` 文件，拖入 Applications 即可。首次打开如提示"无法验证开发者"，在 系统设置 → 隐私与安全性 中点击"仍要打开"。若提示应用已损坏，终端执行：
-  ```bash
-  xattr -dr com.apple.quarantine /Applications/StockPet.app
-  ```
-- **Windows**：下载 `.msi` 或 `.exe` 安装包，双击运行安装。
+| 系统 | 芯片 | 下载文件 |
+|------|------|---------|
+| macOS | Apple Silicon（M1/M2/M3/M4） | `StockPet_{version}_aarch64.dmg` |
+| macOS | Intel | `StockPet_{version}_x64.dmg` |
+| Windows | x64 | `StockPet_{version}_x64-setup.exe`（推荐）或 `StockPet_{version}_x64_en-US.msi` |
+
+> 不确定 Mac 用哪个？点击菜单栏  → 关于本机 → 芯片，显示 Apple 就是 Apple Silicon，显示 Intel 就是 Intel。
+
+### macOS 安装说明
+
+下载 `.dmg` 文件，拖入 Applications 即可。首次打开如提示"无法验证开发者"，在 系统设置 → 隐私与安全性 中点击"仍要打开"。若提示应用已损坏，终端执行：
+
+```bash
+xattr -dr com.apple.quarantine /Applications/StockPet.app
+```
+
+### Windows 安装说明
+
+下载 `.exe`（推荐）或 `.msi` 安装包，双击运行安装。
 
 ## 开发
 
