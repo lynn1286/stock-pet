@@ -1,14 +1,15 @@
 {
   "name": "stock-pet",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "会盯盘的桌宠",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "bash scripts/release.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
