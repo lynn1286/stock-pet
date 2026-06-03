@@ -9,6 +9,7 @@ import { Toast } from './settings/Toast';
 import { AddStockDialog } from './settings/AddStockDialog';
 import { SettingsDialog } from './settings/SettingsDialog';
 import { ContextMenu } from './settings/ContextMenu';
+import { PortfolioSummary } from './settings/PortfolioSummary';
 
 export default function Settings() {
   const {
@@ -228,6 +229,9 @@ export default function Settings() {
           </button>
         </div>
       </header>
+
+      {/* 持仓总览 */}
+      <PortfolioSummary stocks={config.stocks} liveStocks={liveStocks} />
 
       {/* 持仓表格 */}
       <table className="s-table">
