@@ -16,10 +16,13 @@ jobs:
         include:
           - platform: macos-latest
             target: aarch64-apple-darwin
+            args: ''
           - platform: macos-latest
             target: x86_64-apple-darwin
+            args: ''
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
+            args: '--config src-tauri/tauri.windows.conf.json'
 
     runs-on: ${{ matrix.platform }}
 
@@ -56,10 +59,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: 'StockPet v__VERSION__'
+          releaseName: '会盯盘的桌宠 v__VERSION__'
           releaseBody: '会盯盘的桌宠 v__VERSION__'
           releaseDraft: false
           prerelease: false
+          args: ${{ matrix.args }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
