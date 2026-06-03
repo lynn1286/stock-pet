@@ -2,18 +2,18 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-import crab01 from '../assets/01.png';
-import crab02 from '../assets/02.png';
-import crab03 from '../assets/03.png';
-import crab04 from '../assets/04.png';
-import crab05 from '../assets/05.png';
-import crab06 from '../assets/06.png';
-import crab07 from '../assets/07.png';
-import crab08 from '../assets/08.png';
-import crab09 from '../assets/09.png';
-import crab10 from '../assets/010.png';
+import dog01 from '../assets/01.png';
+import dog02 from '../assets/02.png';
+import dog03 from '../assets/03.png';
+import dog04 from '../assets/04.png';
+import dog05 from '../assets/05.png';
+import dog06 from '../assets/06.png';
+import dog07 from '../assets/07.png';
+import dog08 from '../assets/08.png';
+import dog09 from '../assets/09.png';
+import dog10 from '../assets/010.png';
 
-const SPRITES = [crab01, crab02, crab03, crab04, crab05, crab06, crab07, crab08, crab09, crab10];
+const SPRITES = [dog01, dog02, dog03, dog04, dog05, dog06, dog07, dog08, dog09, dog10];
 
 function spriteIndexFromPct(pct: number): number {
   if (Math.abs(pct) >= 9) return 6;  // 07 大幅异动
@@ -92,7 +92,7 @@ function altTextFor(tradeStatus: TradeStatus, pct: number): string {
   return `桌宠状态：暴跌 ${pct.toFixed(1)}%`;
 }
 
-function CrabSprite({ tradeStatus, changePct }: { tradeStatus: TradeStatus; changePct: number }) {
+function DogSprite({ tradeStatus, changePct }: { tradeStatus: TradeStatus; changePct: number }) {
   let index: number;
   if (tradeStatus === 'sleep') {
     index = 7; // 08 休息日
@@ -146,7 +146,7 @@ export default function Pet() {
     >
       <Particles pct={pct} />
       <div className={`pet-avatar ${currentAnim}`}>
-        <CrabSprite tradeStatus={tradeStatus} changePct={pct} />
+        <DogSprite tradeStatus={tradeStatus} changePct={pct} />
       </div>
     </div>
   );
