@@ -2,11 +2,13 @@ import { useState, useMemo } from 'react';
 import { useStockConfig } from '../hooks/useStockConfig';
 import { useStockSearch } from '../hooks/useStockSearch';
 import { useInlineEdit } from '../hooks/useInlineEdit';
+import { useFlashEffect } from '../hooks/useFlashEffect';
 import { StockRow } from './settings/StockRow';
 import { EmptyState } from './settings/EmptyState';
 import { Toast } from './settings/Toast';
 import { AddStockDialog } from './settings/AddStockDialog';
 import { SettingsDialog } from './settings/SettingsDialog';
+import { ContextMenu } from './settings/ContextMenu';
 
 export default function Settings() {
   const {
@@ -46,6 +48,8 @@ export default function Settings() {
     handleEditKey,
   } = useInlineEdit();
 
+  const flashMap = useFlashEffect(liveStocks);
+
   // 新增表单状态
   const [newSecid, setNewSecid] = useState('');
   const [newName, setNewName] = useState('');
@@ -53,8 +57,8 @@ export default function Settings() {
   const [newReturn, setNewReturn] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // 删除确认
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  // 右键菜单
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; secid: string } | null>(null);
 
   // 添加弹层
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -102,15 +106,17 @@ export default function Settings() {
 
   // 删除处理
   function handleDelete(secid: string) {
-    if (confirmDelete === secid) {
-      const stock = config?.stocks.find(s => s.secid === secid);
-      if (stock) {
-        removeStock(stock);
-      }
-      setConfirmDelete(null);
-    } else {
-      setConfirmDelete(secid);
+    const stock = config?.stocks.find(s => s.secid === secid);
+    if (stock) {
+      removeStock(stock);
     }
+    setContextMenu(null);
+  }
+
+  // 右键菜单处理
+  function handleContextMenu(e: React.MouseEvent, secid: string) {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, secid });
   }
 
   // 添加股票
@@ -233,13 +239,12 @@ export default function Settings() {
             <th className="s-th-num">现价</th>
             <th className="s-th-num">当日收益</th>
             <th className="s-th-num">盈亏</th>
-            <th className="s-th-act">操作</th>
           </tr>
         </thead>
         {config.stocks.length === 0 ? (
           <tbody>
             <tr>
-              <td colSpan={7}>
+              <td colSpan={6}>
                 <EmptyState onAdd={() => setShowAddDialog(true)} />
               </td>
             </tr>
@@ -254,15 +259,14 @@ export default function Settings() {
                 isEditingQty={editing?.secid === stock.secid && editing.field === 'quantity'}
                 isEditingCost={editing?.secid === stock.secid && editing.field === 'cost_price'}
                 editValue={editValue}
-                isConfirmDelete={confirmDelete === stock.secid}
                 isHighlighted={newlyAdded === stock.secid}
+                displayMode={config.display_mode}
+                flash={flashMap.get(stock.secid)}
                 onStartEdit={startEdit}
                 onCommitEdit={handleCommitEdit}
                 onEditKey={handleEditKeyDown}
                 onEditValueChange={setEditValue}
-                onDelete={handleDelete}
-                onCancelDelete={() => setConfirmDelete(null)}
-                onSetPrimary={setPrimary}
+                onContextMenu={handleContextMenu}
               />
             ))}
           </tbody>
@@ -306,6 +310,16 @@ export default function Settings() {
         onClearError={() => setError('')}
         onUndo={undoDelete}
       />
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          stockName={config.stocks.find(s => s.secid === contextMenu.secid)?.name ?? ''}
+          onDelete={() => handleDelete(contextMenu.secid)}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }

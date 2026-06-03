@@ -46,7 +46,7 @@ export function SettingsDialog({
         </div>
 
         <div className="s-dialog-body">
-          <div className="s-setting-item" style={{ padding: 0 }}>
+          <div className="s-setting-group">
             <div className="s-setting-head">
               <span className="s-setting-label">桌宠显示</span>
               <div className="s-seg" role="radiogroup">
@@ -69,10 +69,10 @@ export function SettingsDialog({
               </div>
             </div>
             {displayMode === 'primary' && stocks.length > 0 && (
-              <div className="s-setting-primary-select">
-                <span className="s-setting-primary-label">主股票</span>
+              <div className="s-setting-row">
+                <span className="s-setting-row-label">主股票</span>
                 <select
-                  className="s-dialog-input"
+                  className="s-select"
                   value={primarySecid}
                   onChange={e => onSetPrimary(e.target.value)}
                 >
@@ -82,10 +82,12 @@ export function SettingsDialog({
                 </select>
               </div>
             )}
-            <p className="s-setting-tip">桌宠动画和涨跌表现跟随哪只股票。主股票 = 仅标记为"主"的那只，总持仓 = 全部持仓加总</p>
+            <p className="s-setting-tip">桌宠动画和涨跌表现跟随哪只股票</p>
           </div>
 
-          <div className="s-setting-item" style={{ padding: 0 }}>
+          <div className="s-setting-divider" />
+
+          <div className="s-setting-group">
             <div className="s-setting-head">
               <span className="s-setting-label">托盘显示</span>
               <div className="s-seg" role="radiogroup">

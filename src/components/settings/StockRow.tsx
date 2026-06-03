@@ -22,15 +22,14 @@ interface StockRowProps {
   isEditingQty: boolean
   isEditingCost: boolean
   editValue: string
-  isConfirmDelete: boolean
   isHighlighted?: boolean
+  displayMode: 'primary' | 'summary'
+  flash?: 'up' | 'down'
   onStartEdit: (secid: string, field: 'quantity' | 'cost_price', value: number) => void
   onCommitEdit: () => void
   onEditKey: (e: React.KeyboardEvent) => void
   onEditValueChange: (value: string) => void
-  onDelete: (secid: string) => void
-  onCancelDelete: () => void
-  onSetPrimary: (secid: string) => void
+  onContextMenu: (e: React.MouseEvent, secid: string) => void
 }
 
 function fmtNum(n: number, decimals = 2): string {
@@ -53,15 +52,14 @@ export function StockRow({
   isEditingQty,
   isEditingCost,
   editValue,
-  isConfirmDelete,
   isHighlighted,
+  displayMode,
+  flash,
   onStartEdit,
   onCommitEdit,
   onEditKey,
   onEditValueChange,
-  onDelete,
-  onCancelDelete,
-  onSetPrimary
+  onContextMenu
 }: StockRowProps) {
   const currentPrice = live?.price || 0
   const profit =
@@ -77,14 +75,15 @@ export function StockRow({
 
   return (
     <tr
-      className={`${stock.is_primary ? 's-tr-primary' : ''} ${isHighlighted ? 's-tr-highlight' : ''} ${isConfirmDelete ? 's-tr-confirm-delete' : ''}`}
+      className={`${displayMode === 'primary' && stock.is_primary ? 's-tr-primary' : ''} ${isHighlighted ? 's-tr-highlight' : ''} ${flash ? `s-tr-flash-${flash}` : ''}`}
+      onContextMenu={(e) => onContextMenu(e, stock.secid)}
     >
       <td
         className="s-td-name"
         title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}
       >
         <div className="s-td-name-main">
-          {stock.is_primary && <span className="s-dropdown-tag s-tag-primary">主</span>}
+          {displayMode === 'primary' && stock.is_primary && <span className="s-dropdown-tag s-tag-primary">主</span>}
           {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
           <span className="s-td-name-text">{stock.name}</span>
         </div>
@@ -169,42 +168,6 @@ export function StockRow({
             <div className="s-profit-pct">{profitPct >= 0 ? '+' : ''}{profitPct.toFixed(2)}%</div>
           </>
         ) : '-'}
-      </td>
-
-      <td className="s-td-act">
-        {!stock.is_primary && (
-          <button className="s-link" onClick={() => onSetPrimary(stock.secid)} title="设为主股票">
-            主
-          </button>
-        )}
-        {isConfirmDelete ? (
-          <>
-            <button className="s-btn-del-confirm" onClick={() => onDelete(stock.secid)}>
-              Y
-            </button>
-            <button className="s-btn-del-cancel" onClick={onCancelDelete}>
-              N
-            </button>
-          </>
-        ) : (
-          <button
-            className="s-btn-del"
-            onClick={() => onDelete(stock.secid)}
-            aria-label={`删除 ${stock.name}`}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        )}
       </td>
     </tr>
   )

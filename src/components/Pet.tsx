@@ -72,13 +72,24 @@ function Particles({ pct }: { pct: number }) {
             width: p.size,
             height: p.size,
             animationDelay: p.delay,
-            background: '#fbbf24',
-            boxShadow: '0 0 4px rgba(251, 191, 36, 0.6)',
+            background: 'var(--flat)',
+            boxShadow: '0 0 4px color-mix(in srgb, var(--flat) 60%, transparent)',
           }}
         />
       ))}
     </div>
   );
+}
+
+function altTextFor(tradeStatus: TradeStatus, pct: number): string {
+  if (tradeStatus === 'sleep') return '桌宠状态：休市';
+  if (tradeStatus === 'rest') return '桌宠状态：非交易时段';
+  if (pct >= 3) return `桌宠状态：大涨 ${pct.toFixed(1)}%`;
+  if (pct >= 1) return `桌宠状态：小涨 ${pct.toFixed(1)}%`;
+  if (pct > -1) return `桌宠状态：横盘 ${pct.toFixed(1)}%`;
+  if (pct > -3) return `桌宠状态：小跌 ${pct.toFixed(1)}%`;
+  if (pct > -5) return `桌宠状态：大跌 ${pct.toFixed(1)}%`;
+  return `桌宠状态：暴跌 ${pct.toFixed(1)}%`;
 }
 
 function CrabSprite({ tradeStatus, changePct }: { tradeStatus: TradeStatus; changePct: number }) {
@@ -90,7 +101,7 @@ function CrabSprite({ tradeStatus, changePct }: { tradeStatus: TradeStatus; chan
   } else {
     index = spriteIndexFromPct(changePct);
   }
-  return <img src={SPRITES[index]} alt="crab" draggable={false} style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }} />;
+  return <img src={SPRITES[index]} alt={altTextFor(tradeStatus, changePct)} draggable={false} style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }} />;
 }
 
 export default function Pet() {
