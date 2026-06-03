@@ -13,6 +13,7 @@ interface StockState {
   change_pct: number
   profit: number
   profit_pct: number
+  daily_profit: number
 }
 
 interface StockRowProps {
@@ -147,6 +148,17 @@ export function StockRow({
       </td>
 
       <td className="s-td-num">{currentPrice > 0 ? fmtNum(currentPrice) : '-'}</td>
+
+      <td
+        className={`s-td-num s-profit ${live && live.change_pct > 0 ? 's-profit-up' : live && live.change_pct < 0 ? 's-profit-down' : ''}`}
+      >
+        {live ? (
+          <>
+            <div>{stock.quantity > 0 && live.daily_profit !== 0 ? fmtProfit(live.daily_profit) : '-'}</div>
+            <div className="s-profit-pct">{live.change_pct >= 0 ? '+' : ''}{live.change_pct.toFixed(2)}%</div>
+          </>
+        ) : '-'}
+      </td>
 
       <td
         className={`s-td-num s-profit ${profit > 0 ? 's-profit-up' : profit < 0 ? 's-profit-down' : ''}`}

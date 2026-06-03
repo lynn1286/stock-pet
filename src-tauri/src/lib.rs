@@ -52,6 +52,7 @@ pub struct StockState {
     pub cost_value: f64,
     pub profit: f64,
     pub profit_pct: f64,
+    pub daily_profit: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -61,10 +62,25 @@ pub enum DisplayMode {
     Summary,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum TrayDisplay {
+    Amount,
+    Pct,
+}
+
+impl Default for TrayDisplay {
+    fn default() -> Self {
+        TrayDisplay::Pct
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub stocks: Vec<StockConfig>,
     pub display_mode: DisplayMode,
+    #[serde(default)]
+    pub tray_display: TrayDisplay,
 }
 
 impl Default for AppConfig {
@@ -72,6 +88,7 @@ impl Default for AppConfig {
         Self {
             stocks: vec![],
             display_mode: DisplayMode::Summary,
+            tray_display: TrayDisplay::Pct,
         }
     }
 }
@@ -193,6 +210,11 @@ fn build_stock_state(config: &StockConfig, price: f64, change_pct: f64, name: St
     } else {
         0.0
     };
+    let daily_profit = if config.quantity > 0.0 {
+        market_value * change_pct / 100.0
+    } else {
+        0.0
+    };
 
     let status = if config.quantity > 0.0 && config.cost_price > 0.0 {
         if profit > 0.01 { "up" } else if profit < -0.01 { "down" } else { "flat" }
@@ -213,6 +235,7 @@ fn build_stock_state(config: &StockConfig, price: f64, change_pct: f64, name: St
         cost_value,
         profit,
         profit_pct,
+        daily_profit,
     }
 }
 
@@ -247,6 +270,7 @@ fn calc_display_state(stocks: &[StockState], mode: &DisplayMode, config: &AppCon
             quantity: 0.0, cost_price: 0.0,
             market_value: 0.0, cost_value: 0.0,
             profit: 0.0, profit_pct: 0.0,
+            daily_profit: 0.0,
         };
     }
 
@@ -264,6 +288,7 @@ fn calc_display_state(stocks: &[StockState], mode: &DisplayMode, config: &AppCon
         }
         DisplayMode::Summary => {
             let total_profit: f64 = stocks.iter().map(|s| s.profit).sum();
+            let total_daily_profit: f64 = stocks.iter().map(|s| s.daily_profit).sum();
             let total_cost: f64 = stocks.iter().map(|s| s.cost_value).sum();
             let total_market: f64 = stocks.iter().map(|s| s.market_value).sum();
             let total_pct = if total_cost > 0.0 {
@@ -286,6 +311,7 @@ fn calc_display_state(stocks: &[StockState], mode: &DisplayMode, config: &AppCon
                 cost_value: total_cost,
                 profit: total_profit,
                 profit_pct: total_pct,
+                daily_profit: total_daily_profit,
             }
         }
     }
@@ -451,6 +477,59 @@ fn set_display_mode(mode: DisplayMode, state: tauri::State<AppState>) -> Result<
     Ok(())
 }
 
+// ========== 托盘刷新 ==========
+
+fn refresh_tray(app: &AppHandle, stocks: &[StockState], config: &AppConfig) {
+    let Some(tray) = app.tray_by_id("main-tray") else { return };
+
+    let trade_status = get_trade_status();
+    let display = calc_display_state(stocks, &config.display_mode, config);
+
+    let title = match trade_status {
+        TradeStatus::Trading | TradeStatus::Rest => {
+            match config.tray_display {
+                TrayDisplay::Amount => {
+                    let sign = if display.daily_profit >= 0.0 { "+" } else { "" };
+                    format!("\u{2002}{}{:.0}元", sign, display.daily_profit)
+                }
+                TrayDisplay::Pct => {
+                    let sign = if display.change_pct >= 0.0 { "+" } else { "" };
+                    format!("\u{2002}{}{:.2}%", sign, display.change_pct)
+                }
+            }
+        }
+        TradeStatus::Sleep => "\u{2002}休息".to_string(),
+    };
+
+    let tooltip = match trade_status {
+        TradeStatus::Trading | TradeStatus::Rest => {
+            let sign_dp = if display.daily_profit >= 0.0 { "+" } else { "" };
+            let sign_cp = if display.change_pct >= 0.0 { "+" } else { "" };
+            format!(
+                "{} 当日{}{:.0}元 ({}{:.2}%)",
+                display.name, sign_dp, display.daily_profit, sign_cp, display.change_pct
+            )
+        }
+        TradeStatus::Sleep => "股票桌宠 - 非交易日".to_string(),
+    };
+
+    let _ = tray.set_title(Some(&title));
+    let _ = tray.set_tooltip(Some(&tooltip));
+}
+
+#[tauri::command]
+fn set_tray_display(mode: TrayDisplay, state: tauri::State<AppState>, app: AppHandle) -> Result<(), String> {
+    {
+        let mut cfg = state.config.lock().unwrap();
+        cfg.tray_display = mode;
+        save_config(&cfg);
+    }
+    let config = state.config.lock().unwrap().clone();
+    let stocks = state.stocks_state.lock().unwrap().clone();
+    refresh_tray(&app, &stocks, &config);
+    Ok(())
+}
+
 // ========== 轮询逻辑 ==========
 
 fn start_polling(app: AppHandle) {
@@ -458,24 +537,6 @@ fn start_polling(app: AppHandle) {
         loop {
             let trade_status = get_trade_status();
             let _ = app.emit("trade-status", &trade_status);
-
-            let tray = app.tray_by_id("main-tray");
-            if let Some(ref tray) = tray {
-                match trade_status {
-                    TradeStatus::Trading => {
-                        let _ = tray.set_title(Some("\u{2002}交易中"));
-                        let _ = tray.set_tooltip(Some("股票桌宠 - 交易中"));
-                    }
-                    TradeStatus::Rest => {
-                        let _ = tray.set_title(Some("\u{2002}休市"));
-                        let _ = tray.set_tooltip(Some("股票桌宠 - 交易日休息中"));
-                    }
-                    TradeStatus::Sleep => {
-                        let _ = tray.set_title(Some("\u{2002}休息"));
-                        let _ = tray.set_tooltip(Some("股票桌宠 - 非交易日"));
-                    }
-                }
-            }
 
             let app_state = app.state::<AppState>();
 
@@ -490,24 +551,23 @@ fn start_polling(app: AppHandle) {
                     let display = calc_display_state(&stocks, &config.display_mode, &config);
                     let _ = app.emit("stock-state", &display);
 
-                    if let Some(tray) = tray {
-                        let sign = if display.profit_pct >= 0.0 { "+" } else { "" };
-                        let title = format!("\u{2002}{}{:.2}%", sign, display.profit_pct);
-                        let tooltip = format!(
-                            "{} 盈亏 {:.0}元 ({})",
-                            display.name, display.profit, title
-                        );
-                        let _ = tray.set_title(Some(&title));
-                        let _ = tray.set_tooltip(Some(&tooltip));
-                    }
+                    refresh_tray(&app, &stocks, &config);
+
+                    sleep(Duration::from_secs(10)).await;
                 }
-                TradeStatus::Rest | TradeStatus::Sleep => {
+                TradeStatus::Rest => {
+                    let config = app_state.config.lock().unwrap().clone();
+                    let stocks = app_state.stocks_state.lock().unwrap().clone();
+                    refresh_tray(&app, &stocks, &config);
                     sleep(Duration::from_secs(30)).await;
-                    continue;
+                }
+                TradeStatus::Sleep => {
+                    let config = app_state.config.lock().unwrap().clone();
+                    let stocks = app_state.stocks_state.lock().unwrap().clone();
+                    refresh_tray(&app, &stocks, &config);
+                    sleep(Duration::from_secs(30)).await;
                 }
             }
-
-            sleep(Duration::from_secs(10)).await;
         }
     });
 }
@@ -604,6 +664,7 @@ pub fn run() {
             remove_stock,
             set_primary,
             set_display_mode,
+            set_tray_display,
             refresh_prices,
         ])
         .setup(|app| {

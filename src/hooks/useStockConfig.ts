@@ -5,6 +5,7 @@ import { userMessage } from '../utils/errmsg';
 
 type AssetType = 'stock' | 'etf' | 'fund';
 type DisplayMode = 'primary' | 'summary';
+type TrayDisplay = 'amount' | 'pct';
 
 interface StockConfig {
   secid: string;
@@ -21,11 +22,13 @@ interface StockState {
   change_pct: number;
   profit: number;
   profit_pct: number;
+  daily_profit: number;
 }
 
 interface AppConfig {
   stocks: StockConfig[];
   display_mode: DisplayMode;
+  tray_display: TrayDisplay;
 }
 
 const UNDO_WINDOW = 5000;
@@ -187,6 +190,16 @@ export function useStockConfig() {
     }
   }, [loadConfig]);
 
+  // 切换托盘显示
+  const setTrayDisplay = useCallback(async (mode: TrayDisplay) => {
+    try {
+      await invoke('set_tray_display', { mode });
+      await loadConfig();
+    } catch (e) {
+      setError(userMessage(e));
+    }
+  }, [loadConfig]);
+
   return {
     config,
     error,
@@ -202,5 +215,6 @@ export function useStockConfig() {
     updateStock,
     setPrimary,
     setDisplayMode,
+    setTrayDisplay,
   };
 }

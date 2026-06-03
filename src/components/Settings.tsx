@@ -22,6 +22,7 @@ export default function Settings() {
     updateStock,
     setPrimary,
     setDisplayMode,
+    setTrayDisplay,
   } = useStockConfig();
 
   const {
@@ -225,6 +226,25 @@ export default function Settings() {
             总持仓盈亏
           </button>
         </div>
+        <span className="s-mode-label" style={{ marginLeft: 'auto' }}>托盘</span>
+        <div className="s-seg" role="radiogroup">
+          <button
+            className={`s-seg-btn ${config.tray_display === 'amount' ? 'on' : ''}`}
+            role="radio"
+            aria-checked={config.tray_display === 'amount'}
+            onClick={() => setTrayDisplay('amount')}
+          >
+            金额
+          </button>
+          <button
+            className={`s-seg-btn ${config.tray_display === 'pct' ? 'on' : ''}`}
+            role="radio"
+            aria-checked={config.tray_display === 'pct'}
+            onClick={() => setTrayDisplay('pct')}
+          >
+            收益率
+          </button>
+        </div>
       </div>
 
       {/* 持仓表格 */}
@@ -235,6 +255,7 @@ export default function Settings() {
             <th className="s-th-num">份额</th>
             <th className="s-th-num">成本价</th>
             <th className="s-th-num">现价</th>
+            <th className="s-th-num">当日收益</th>
             <th className="s-th-num">盈亏</th>
             <th className="s-th-act">操作</th>
           </tr>
@@ -242,7 +263,7 @@ export default function Settings() {
         {config.stocks.length === 0 ? (
           <tbody>
             <tr>
-              <td colSpan={6}>
+              <td colSpan={7}>
                 <EmptyState onAdd={() => setShowAddDialog(true)} />
               </td>
             </tr>
