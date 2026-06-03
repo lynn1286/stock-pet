@@ -3,7 +3,6 @@ name: Build
 on:
   push:
     branches: [main]
-    tags: ['v*']
 
 permissions:
   contents: write
@@ -16,13 +15,10 @@ jobs:
         include:
           - platform: macos-latest
             target: aarch64-apple-darwin
-            args: ''
           - platform: macos-latest
             target: x86_64-apple-darwin
-            args: ''
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-            args: ''
 
     runs-on: ${{ matrix.platform }}
 
@@ -63,7 +59,6 @@ jobs:
           releaseBody: '会盯盘的桌宠 v__VERSION__'
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
