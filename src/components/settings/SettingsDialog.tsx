@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { MockToggle } from '../../mock/MockToggle';
 
 type DisplayMode = 'primary' | 'summary';
@@ -10,14 +10,22 @@ interface StockItem {
   is_primary: boolean;
 }
 
+interface VisionConfig {
+  base_url: string;
+  api_key: string;
+  model: string;
+}
+
 interface SettingsDialogProps {
   open: boolean;
   displayMode: DisplayMode;
   trayDisplay: TrayDisplay;
   stocks: StockItem[];
+  visionConfig: VisionConfig;
   onDisplayModeChange: (mode: DisplayMode) => void;
   onTrayDisplayChange: (mode: TrayDisplay) => void;
   onSetPrimary: (secid: string) => void;
+  onSaveVisionConfig: (cfg: VisionConfig) => Promise<void> | void;
   onClose: () => void;
 }
 
@@ -26,18 +34,29 @@ export function SettingsDialog({
   displayMode,
   trayDisplay,
   stocks,
+  visionConfig,
   onDisplayModeChange,
   onTrayDisplayChange,
   onSetPrimary,
+  onSaveVisionConfig,
   onClose,
 }: SettingsDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [vBaseUrl, setVBaseUrl] = useState(visionConfig.base_url);
+  const [vApiKey, setVApiKey] = useState(visionConfig.api_key);
+  const [vModel, setVModel] = useState(visionConfig.model);
+  const [visionSaved, setVisionSaved] = useState(false);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
+      // 打开时同步最新的视觉配置，丢弃上次未保存的草稿
+      setVBaseUrl(visionConfig.base_url);
+      setVApiKey(visionConfig.api_key);
+      setVModel(visionConfig.model);
+      setVisionSaved(false);
       // showModal 会默认聚焦第一个可聚焦控件（关闭按钮），此处不保留初始焦点
       requestAnimationFrame(() => {
         (document.activeElement as HTMLElement | null)?.blur();
@@ -45,7 +64,13 @@ export function SettingsDialog({
     } else if (!open && dialog.open) {
       dialog.close();
     }
-  }, [open]);
+  }, [open, visionConfig]);
+
+  async function handleSaveVision() {
+    await onSaveVisionConfig({ base_url: vBaseUrl, api_key: vApiKey, model: vModel });
+    setVisionSaved(true);
+    setTimeout(() => setVisionSaved(false), 2000);
+  }
 
   const primarySecid = stocks.find((s) => s.is_primary)?.secid ?? stocks[0]?.secid ?? '';
 
@@ -141,6 +166,51 @@ export function SettingsDialog({
             </div>
           </div>
           <p className="s-setting-tip">菜单栏托盘图标旁显示当日收益金额还是当日涨跌幅</p>
+        </div>
+
+        <div className="s-setting-divider" />
+
+        <div className="s-setting-group">
+          <span className="s-setting-label">图片识别（图片导入持仓）</span>
+          <label className="s-dialog-label">
+            API 地址（OpenAI 兼容，含 /v1）
+            <input
+              className="s-dialog-input"
+              type="text"
+              placeholder="https://dashscope.aliyuncs.com/compatible-mode/v1"
+              value={vBaseUrl}
+              onChange={(e) => setVBaseUrl(e.target.value)}
+            />
+          </label>
+          <label className="s-dialog-label">
+            API 密钥
+            <input
+              className="s-dialog-input"
+              type="password"
+              placeholder="sk-..."
+              value={vApiKey}
+              onChange={(e) => setVApiKey(e.target.value)}
+            />
+          </label>
+          <label className="s-dialog-label">
+            模型名（需支持图片输入）
+            <input
+              className="s-dialog-input"
+              type="text"
+              placeholder="qwen-vl-max"
+              value={vModel}
+              onChange={(e) => setVModel(e.target.value)}
+            />
+          </label>
+          <div className="s-setting-row">
+            <button className="s-dialog-submit" onClick={handleSaveVision}>
+              {visionSaved ? '已保存' : '保存配置'}
+            </button>
+          </div>
+          <p className="s-setting-tip">
+            截图会上传到你配置的模型服务用于识别，不经过本应用服务器；密钥明文保存在本机
+            config.json。
+          </p>
         </div>
 
         <MockToggle />

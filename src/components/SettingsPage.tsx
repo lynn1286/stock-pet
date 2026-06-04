@@ -8,6 +8,7 @@ import { EmptyState } from './settings/EmptyState';
 import { Toast } from './settings/Toast';
 import { AddStockDialog } from './settings/AddStockDialog';
 import { SettingsDialog } from './settings/SettingsDialog';
+import { ImageImportDialog } from './settings/ImageImportDialog';
 import { ContextMenu } from './settings/ContextMenu';
 import { PortfolioSummary } from './settings/PortfolioSummary';
 
@@ -19,6 +20,9 @@ export function SettingsPage() {
     liveStocks,
     deletedName,
     setError,
+    setSuccess,
+    loadConfig,
+    refreshLivePrices,
     fetchPrice,
     addStock,
     removeStock,
@@ -27,6 +31,7 @@ export function SettingsPage() {
     setPrimary,
     setDisplayMode,
     setTrayDisplay,
+    setVisionConfig,
   } = useStockConfig();
 
   const {
@@ -56,9 +61,24 @@ export function SettingsPage() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [newlyAdded, setNewlyAdded] = useState<string | null>(null);
 
   const primaryStock = useMemo(() => config?.stocks.find((s) => s.is_primary), [config]);
+  const existingSecids = useMemo(() => new Set(config?.stocks.map((s) => s.secid) ?? []), [config]);
+
+  async function handleImported(summary: { added: number; skipped: number; failed: number }) {
+    await loadConfig();
+    await refreshLivePrices();
+    const parts = [`导入 ${summary.added} 条`];
+    if (summary.skipped > 0) parts.push(`跳过 ${summary.skipped} 条`);
+    if (summary.failed > 0) parts.push(`失败 ${summary.failed} 条`);
+    if (summary.failed > 0) {
+      setError(parts.join('，'));
+    } else {
+      setSuccess(parts.join('，'));
+    }
+  }
 
   function handleSelectSearchResult(result: Parameters<typeof selectSearchResult>[0]) {
     const { secid, name } = selectSearchResult(result);
@@ -192,6 +212,26 @@ export function SettingsPage() {
           {primaryStock && <span className="s-topbar-primary">{primaryStock.name}</span>}
           <button
             className="s-topbar-icon-btn"
+            onClick={() => setShowImportDialog(true)}
+            aria-label="图片导入持仓"
+            title="图片导入持仓"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <path d="M21 15l-5-5L5 21" />
+            </svg>
+          </button>
+          <button
+            className="s-topbar-icon-btn"
             onClick={() => setShowSettingsDialog(true)}
             aria-label="设置"
             title="设置"
@@ -281,10 +321,27 @@ export function SettingsPage() {
         displayMode={config.display_mode}
         trayDisplay={config.tray_display}
         stocks={config.stocks}
+        visionConfig={config.vision}
         onDisplayModeChange={setDisplayMode}
         onTrayDisplayChange={setTrayDisplay}
         onSetPrimary={setPrimary}
+        onSaveVisionConfig={setVisionConfig}
         onClose={() => setShowSettingsDialog(false)}
+      />
+
+      <ImageImportDialog
+        open={showImportDialog}
+        visionConfigured={
+          !!config.vision.base_url && !!config.vision.api_key && !!config.vision.model
+        }
+        existingSecids={existingSecids}
+        fetchPrice={fetchPrice}
+        onOpenSettings={() => {
+          setShowImportDialog(false);
+          setShowSettingsDialog(true);
+        }}
+        onImported={handleImported}
+        onClose={() => setShowImportDialog(false)}
       />
 
       <AddStockDialog

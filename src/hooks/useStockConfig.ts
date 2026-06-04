@@ -25,10 +25,17 @@ interface StockState {
   daily_profit: number;
 }
 
+interface VisionConfig {
+  base_url: string;
+  api_key: string;
+  model: string;
+}
+
 interface AppConfig {
   stocks: StockConfig[];
   display_mode: DisplayMode;
   tray_display: TrayDisplay;
+  vision: VisionConfig;
 }
 
 const UNDO_WINDOW = 5000;
@@ -237,6 +244,19 @@ export function useStockConfig() {
     [loadConfig],
   );
 
+  // 保存图片识别（视觉模型）配置
+  const setVisionConfig = useCallback(
+    async (vision: VisionConfig) => {
+      await invoke('set_vision_config', {
+        baseUrl: vision.base_url,
+        apiKey: vision.api_key,
+        model: vision.model,
+      });
+      await loadConfig();
+    },
+    [loadConfig],
+  );
+
   return {
     config,
     error,
@@ -244,7 +264,9 @@ export function useStockConfig() {
     liveStocks,
     deletedName: pendingDelete?.name ?? null,
     setError,
+    setSuccess,
     loadConfig,
+    refreshLivePrices,
     fetchPrice,
     addStock,
     removeStock,
@@ -253,5 +275,6 @@ export function useStockConfig() {
     setPrimary,
     setDisplayMode,
     setTrayDisplay,
+    setVisionConfig,
   };
 }

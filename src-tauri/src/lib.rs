@@ -75,12 +75,60 @@ impl Default for TrayDisplay {
     }
 }
 
+/// 图片识别（OpenAI 兼容视觉接口）配置。明文存本地 config.json，是云方案的固有代价。
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct VisionConfig {
+    #[serde(default)]
+    pub base_url: String,
+    #[serde(default)]
+    pub api_key: String,
+    #[serde(default)]
+    pub model: String,
+}
+
+/// 从持仓截图识别出的单条原始记录（尚未解析出权威 secid）。
+/// name/market_value/profit/quantity/cost_price 为图中读到的事实；
+/// normalized_name/guess_code/guess_asset_type 为视觉模型基于知识做的归一化猜测，
+/// 仅用于后续向东方财富检索/校验，绝不直接采信。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecognizedHolding {
+    pub name: String,
+    pub code: String,
+    pub market_value: f64,
+    pub profit: f64,
+    /// 份额/持仓数量，图中有就填（东方财富交易页有），否则 0。
+    pub quantity: f64,
+    /// 成本价，图中有就填（东方财富交易页有），否则 0。
+    pub cost_price: f64,
+    pub truncated: bool,
+    /// 模型归一化后的 A 股市场标准简称（如「东财通信C」）。
+    pub normalized_name: String,
+    /// 模型猜测的 6 位代码，需经东方财富反查校验后才可用。
+    pub guess_code: String,
+    pub guess_asset_type: AssetType,
+}
+
+/// 识图 + 确定性解析后的单条记录，candidates 全部来自东方财富权威数据。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecognizedHoldingRow {
+    pub name: String,
+    pub code: String,
+    pub market_value: f64,
+    pub profit: f64,
+    pub quantity: f64,
+    pub cost_price: f64,
+    pub truncated: bool,
+    pub candidates: Vec<SearchResult>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub stocks: Vec<StockConfig>,
     pub display_mode: DisplayMode,
     #[serde(default)]
     pub tray_display: TrayDisplay,
+    #[serde(default)]
+    pub vision: VisionConfig,
 }
 
 impl Default for AppConfig {
@@ -89,6 +137,7 @@ impl Default for AppConfig {
             stocks: vec![],
             display_mode: DisplayMode::Summary,
             tray_display: TrayDisplay::Pct,
+            vision: VisionConfig::default(),
         }
     }
 }
@@ -383,7 +432,7 @@ fn calc_display_state(stocks: &[StockState], mode: &DisplayMode, config: &AppCon
 
 // ========== 股票搜索 ==========
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub secid: String,
     pub name: String,
@@ -463,6 +512,373 @@ async fn search_stocks_api(query: &str) -> Result<Vec<SearchResult>, String> {
     }
 
     Ok(results)
+}
+
+// ========== 图片识别持仓 ==========
+
+const VISION_PROMPT: &str = "你是基金/股票持仓截图识别助手。从图片的持仓列表中提取每一条真实持仓，输出一个 JSON 数组。\n\
+每个元素字段：\n\
+- name: 名称，按图中显示原样（可能被省略号截断，保留可见部分）\n\
+- code: 图中显示的 6 位代码，没显示就用空字符串\n\
+- market_value: 持仓金额 / 持仓市值，单位元，数字（去掉千分位逗号）\n\
+- profit: 持有收益（累计收益 / 持仓盈亏），单位元，数字，亏损为负\n\
+- quantity: 份额 / 持仓数量，图中明确给出才填数字，否则填 0\n\
+- cost_price: 成本价 / 成本，图中明确给出才填数字，否则填 0\n\
+- normalized_name: 你判断该标的在中国 A 股市场的标准简称（含份额类别，如「东财通信C」「广发纳斯达克100ETF联接人民币C」）。名称被截断或是平台缩写时，结合上下文还原成最可能的完整标准简称；无把握就回退为 name\n\
+- guess_code: 你判断的 6 位代码，有把握才填，否则空字符串\n\
+- asset_type: \"stock\" | \"etf\" | \"fund\"（场外基金为 fund，场内 ETF 为 etf）\n\
+规则：\n\
+- 「昨日收益」「当日收益」不是 profit，profit 只取「持有收益 / 累计收益 / 持仓盈亏」这一列。\n\
+- 跳过分组标题（如「XX 基金财富号」）、营销与资讯条目、合计 / 总览行。\n\
+- quantity 与 cost_price 只在图中真实存在时填，绝不臆造。\n\
+只输出 JSON 数组本身，不要任何解释文字，不要 markdown 代码块标记。";
+
+/// 把模型返回的数值字段稳健地转成 f64：兼容数字与带逗号/符号/单位的字符串。
+fn json_to_f64(v: &serde_json::Value) -> f64 {
+    match v {
+        serde_json::Value::Number(n) => n.as_f64().unwrap_or(0.0),
+        serde_json::Value::String(s) => {
+            let cleaned: String = s
+                .chars()
+                .filter(|c| c.is_ascii_digit() || *c == '.' || *c == '-')
+                .collect();
+            cleaned.parse::<f64>().unwrap_or(0.0)
+        }
+        _ => 0.0,
+    }
+}
+
+/// 去掉模型可能包裹的 ```json 代码块标记。
+fn strip_code_fence(s: &str) -> String {
+    let mut t = s.trim();
+    if let Some(rest) = t.strip_prefix("```json") {
+        t = rest.trim();
+    } else if let Some(rest) = t.strip_prefix("```") {
+        t = rest.trim();
+    }
+    if let Some(rest) = t.strip_suffix("```") {
+        t = rest.trim();
+    }
+    t.to_string()
+}
+
+/// 按字符截断，用于错误信息回显，避免把超长响应体整个抛出。
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let head: String = s.chars().take(max).collect();
+        format!("{}…", head)
+    }
+}
+
+fn parse_asset_type(raw: &str) -> AssetType {
+    match raw.trim().to_lowercase().as_str() {
+        "etf" => AssetType::Etf,
+        "fund" => AssetType::Fund,
+        _ => AssetType::Stock,
+    }
+}
+
+/// 调用用户配置的 OpenAI 兼容接口，返回 assistant 文本内容。
+async fn vision_chat(
+    client: &reqwest::Client,
+    vision: &VisionConfig,
+    messages: serde_json::Value,
+) -> Result<String, String> {
+    let endpoint = format!("{}/chat/completions", vision.base_url.trim_end_matches('/'));
+    let body = serde_json::json!({
+        "model": vision.model,
+        "temperature": 0,
+        "messages": messages,
+    });
+
+    let resp = client
+        .post(&endpoint)
+        .bearer_auth(&vision.api_key)
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("AI 请求失败: {}", e))?;
+
+    let status = resp.status();
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("读取 AI 响应失败: {}", e))?;
+
+    if !status.is_success() {
+        return Err(format!(
+            "AI 服务返回 {}: {}",
+            status.as_u16(),
+            truncate_chars(&text, 200)
+        ));
+    }
+
+    let json: serde_json::Value =
+        serde_json::from_str(&text).map_err(|e| format!("AI 响应解析失败: {}", e))?;
+    json.pointer("/choices/0/message/content")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "AI 响应缺少内容字段".to_string())
+}
+
+fn parse_json_array(content: &str, err_label: &str) -> Result<Vec<serde_json::Value>, String> {
+    let cleaned = strip_code_fence(content);
+    let arr: serde_json::Value = serde_json::from_str(&cleaned).map_err(|e| {
+        format!(
+            "{}: {} (原文: {})",
+            err_label,
+            e,
+            truncate_chars(&cleaned, 120)
+        )
+    })?;
+    arr.as_array()
+        .cloned()
+        .ok_or_else(|| format!("{}: 内容不是 JSON 数组", err_label))
+}
+
+async fn recognize_one(
+    client: &reqwest::Client,
+    vision: &VisionConfig,
+    image: &str,
+) -> Result<Vec<RecognizedHolding>, String> {
+    let messages = serde_json::json!([{
+        "role": "user",
+        "content": [
+            { "type": "text", "text": VISION_PROMPT },
+            { "type": "image_url", "image_url": { "url": image } }
+        ]
+    }]);
+    let content = vision_chat(client, vision, messages).await?;
+    let items = parse_json_array(&content, "识图结果无效")?;
+
+    let mut result = Vec::new();
+    for item in items {
+        let name = item
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        if name.is_empty() {
+            continue;
+        }
+        let str_field = |key: &str| {
+            item.get(key)
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .trim()
+                .to_string()
+        };
+        let code = str_field("code");
+        let market_value = item.get("market_value").map(json_to_f64).unwrap_or(0.0);
+        let profit = item.get("profit").map(json_to_f64).unwrap_or(0.0);
+        let quantity = item.get("quantity").map(json_to_f64).unwrap_or(0.0);
+        let cost_price = item.get("cost_price").map(json_to_f64).unwrap_or(0.0);
+        let truncated = name.contains('…') || name.contains("...");
+        let normalized_name = {
+            let n = str_field("normalized_name");
+            if n.is_empty() { name.clone() } else { n }
+        };
+        let guess_code = str_field("guess_code");
+        let guess_asset_type = item
+            .get("asset_type")
+            .and_then(|v| v.as_str())
+            .map(parse_asset_type)
+            .unwrap_or_default();
+
+        result.push(RecognizedHolding {
+            name,
+            code,
+            market_value,
+            profit,
+            quantity,
+            cost_price,
+            truncated,
+            normalized_name,
+            guess_code,
+            guess_asset_type,
+        });
+    }
+
+    Ok(result)
+}
+
+fn is_six_digit(s: &str) -> bool {
+    let s = s.trim();
+    s.len() == 6 && s.chars().all(|c| c.is_ascii_digit())
+}
+
+/// 把若干字符串去空白、去空、去重后保序返回，用于多个名称查询源。
+fn dedup_nonempty(items: &[&str]) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for raw in items {
+        let s = raw.trim().to_string();
+        if !s.is_empty() && !out.contains(&s) {
+            out.push(s);
+        }
+    }
+    out
+}
+
+/// 东方财富天天基金全文（模糊）搜索：用于名称别名 / 截断 / 份额分级场景，
+/// 只取场外基金（CATEGORYDESC = 基金），返回权威 SearchResult（场外基金 secid 用 0.{code}）。
+async fn fund_fulltext_search(client: &reqwest::Client, key: &str) -> Vec<SearchResult> {
+    let key = key.trim();
+    if key.is_empty() {
+        return vec![];
+    }
+    let url = format!(
+        "https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx?m=1&key={}",
+        key
+    );
+    let Ok(resp) = client.get(&url).send().await else {
+        return vec![];
+    };
+    let Ok(json) = resp.json::<serde_json::Value>().await else {
+        return vec![];
+    };
+    let Some(items) = json.get("Datas").and_then(|d| d.as_array()) else {
+        return vec![];
+    };
+
+    let mut results = Vec::new();
+    for item in items {
+        let category = item
+            .get("CATEGORYDESC")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        if category != "基金" {
+            continue;
+        }
+        let code = item.get("CODE").and_then(|v| v.as_str()).unwrap_or("");
+        if !is_six_digit(code) {
+            continue;
+        }
+        let name = item
+            .get("NAME")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .trim()
+            .to_string();
+        // 场内 ETF（名称含 ETF 但非「ETF联接」）应由 suggest 给出正确市场/类型，
+        // 全文这里只保留真正的场外基金，避免生成错误的 0.{code}/fund secid。
+        if name.contains("ETF") && !name.contains("联接") && !name.contains("連接") {
+            continue;
+        }
+        results.push(SearchResult {
+            secid: format!("0.{}", code),
+            name,
+            code: code.to_string(),
+            market: "0".to_string(),
+            asset_type: AssetType::Fund,
+        });
+    }
+    results
+}
+
+/// 为单条识图结果解析出权威候选标的，层层兜底，全部来自东方财富数据：
+/// 1) 图中代码 / 模型猜测代码 → suggest 反查校验
+/// 2) 标准简称 / 原始名 → suggest 前缀检索
+/// 3) 标准简称 / 原始名 → 基金全文搜索（补别名、截断、份额分级）
+async fn resolve_candidates(
+    client: &reqwest::Client,
+    holding: &RecognizedHolding,
+) -> Vec<SearchResult> {
+    let mut out: Vec<SearchResult> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let push = |results: Vec<SearchResult>,
+                out: &mut Vec<SearchResult>,
+                seen: &mut std::collections::HashSet<String>| {
+        for r in results {
+            if r.secid.is_empty() {
+                continue;
+            }
+            if seen.insert(r.secid.clone()) {
+                out.push(r);
+            }
+        }
+    };
+
+    // 1. 按确切代码反查，最权威（图中代码优先于模型猜测）
+    for code in [holding.code.as_str(), holding.guess_code.as_str()] {
+        if is_six_digit(code) {
+            if let Ok(rs) = search_stocks_api(code).await {
+                push(rs, &mut out, &mut seen);
+            }
+        }
+    }
+
+    let names = dedup_nonempty(&[holding.normalized_name.as_str(), holding.name.as_str()]);
+
+    // 2. 按名称前缀检索（标准简称优先）
+    for q in &names {
+        if let Ok(rs) = search_stocks_api(q).await {
+            push(rs, &mut out, &mut seen);
+        }
+    }
+
+    // 3. 基金全文模糊搜索，补齐别名 / 截断 / 份额分级
+    for q in &names {
+        if out.len() >= 12 {
+            break;
+        }
+        let rs = fund_fulltext_search(client, q).await;
+        push(rs, &mut out, &mut seen);
+    }
+
+    out.truncate(12);
+    out
+}
+
+/// 逐条把识图结果解析为带权威候选的行。
+async fn resolve_holdings(
+    client: &reqwest::Client,
+    holdings: &[RecognizedHolding],
+) -> Vec<RecognizedHoldingRow> {
+    let mut rows = Vec::with_capacity(holdings.len());
+    for h in holdings {
+        let candidates = resolve_candidates(client, h).await;
+        rows.push(RecognizedHoldingRow {
+            name: h.name.clone(),
+            code: h.code.clone(),
+            market_value: h.market_value,
+            profit: h.profit,
+            quantity: h.quantity,
+            cost_price: h.cost_price,
+            truncated: h.truncated,
+            candidates,
+        });
+    }
+    rows
+}
+
+/// 图片导入持仓时的"重新搜索"：确定性来源（suggest + 基金全文），按名称/代码查候选。
+async fn search_candidates(client: &reqwest::Client, query: &str) -> Vec<SearchResult> {
+    let q = query.trim();
+    if q.is_empty() {
+        return vec![];
+    }
+    let mut out: Vec<SearchResult> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    if let Ok(rs) = search_stocks_api(q).await {
+        for r in rs {
+            if seen.insert(r.secid.clone()) {
+                out.push(r);
+            }
+        }
+    }
+    for r in fund_fulltext_search(client, q).await {
+        if out.len() >= 12 {
+            break;
+        }
+        if seen.insert(r.secid.clone()) {
+            out.push(r);
+        }
+    }
+    out.truncate(12);
+    out
 }
 
 // ========== Tauri 命令 ==========
@@ -655,6 +1071,63 @@ fn set_tray_display(
     let stocks = state.stocks_state.lock().unwrap().clone();
     refresh_tray(&app, &stocks, &config);
     Ok(())
+}
+
+#[tauri::command]
+fn get_vision_config(state: tauri::State<AppState>) -> VisionConfig {
+    state.config.lock().unwrap().vision.clone()
+}
+
+#[tauri::command]
+fn set_vision_config(
+    base_url: String,
+    api_key: String,
+    model: String,
+    state: tauri::State<AppState>,
+) -> Result<(), String> {
+    let mut config = state.config.lock().unwrap();
+    config.vision = VisionConfig {
+        base_url: base_url.trim().to_string(),
+        api_key: api_key.trim().to_string(),
+        model: model.trim().to_string(),
+    };
+    save_config(&config);
+    Ok(())
+}
+
+#[tauri::command]
+async fn lookup_stock_ai(query: String) -> Result<Vec<SearchResult>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("创建请求客户端失败: {}", e))?;
+    Ok(search_candidates(&client, &query).await)
+}
+
+#[tauri::command]
+async fn recognize_holdings(
+    images: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<RecognizedHoldingRow>, String> {
+    let vision = { state.config.lock().unwrap().vision.clone() };
+    if vision.base_url.is_empty() || vision.api_key.is_empty() || vision.model.is_empty() {
+        return Err("未配置图片识别服务，请先在设置中填写 API 地址、密钥和模型名".to_string());
+    }
+    if images.is_empty() {
+        return Err("没有可识别的图片".to_string());
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .map_err(|e| format!("创建请求客户端失败: {}", e))?;
+
+    let mut all = Vec::new();
+    for image in &images {
+        let holdings = recognize_one(&client, &vision, image).await?;
+        all.extend(holdings);
+    }
+    Ok(resolve_holdings(&client, &all).await)
 }
 
 // ========== 轮询逻辑 ==========
@@ -923,6 +1396,7 @@ pub fn run() {
             get_config,
             get_stocks_state,
             search_stock,
+            lookup_stock_ai,
             fetch_single_price,
             add_stock,
             update_stock,
@@ -930,6 +1404,9 @@ pub fn run() {
             set_primary,
             set_display_mode,
             set_tray_display,
+            get_vision_config,
+            set_vision_config,
+            recognize_holdings,
             refresh_prices,
             open_mock_panel,
             close_mock_panel,
