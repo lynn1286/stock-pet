@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { usePortfolioTrend, type TrendPoint } from '../../hooks/usePortfolioTrend';
 
 interface StockConfig {
   secid: string;
@@ -30,66 +29,7 @@ function fmtProfit(n: number): string {
   return `${sign}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// 折线图
-function TrendChart({ points }: { points: TrendPoint[] }) {
-  if (points.length < 2) {
-    return (
-      <div className="s-trend-empty">
-        <span>数据采集中…</span>
-      </div>
-    );
-  }
-
-  const values = points.map((p) => p.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const padding = range * 0.1;
-  const yMin = min - padding;
-  const yMax = max + padding;
-
-  const width = 280;
-  const height = 60;
-  const stepX = width / (points.length - 1);
-
-  const pathPoints = points.map((p, i) => {
-    const x = i * stepX;
-    const y = height - ((p.value - yMin) / (yMax - yMin)) * height;
-    return `${x},${y}`;
-  });
-
-  const linePath = `M${pathPoints.join(' L')}`;
-  const areaPath = `${linePath} L${width},${height} L0,${height} Z`;
-
-  // 起止价格用于标注
-  const startVal = values[0];
-  const endVal = values[values.length - 1];
-  const isUp = endVal >= startVal;
-  const strokeColor = isUp ? 'var(--up)' : 'var(--down)';
-
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="s-trend-svg" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={strokeColor} stopOpacity="0.15" />
-          <stop offset="100%" stopColor={strokeColor} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={areaPath} fill="url(#trendGrad)" />
-      <path
-        d={linePath}
-        fill="none"
-        stroke={strokeColor}
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 export function PortfolioSummary({ stocks, liveStocks }: PortfolioSummaryProps) {
-  const trendPoints = usePortfolioTrend(stocks, liveStocks);
-
   const summary = useMemo(() => {
     let totalMarketValue = 0;
     let totalCost = 0;
@@ -153,10 +93,6 @@ export function PortfolioSummary({ stocks, liveStocks }: PortfolioSummaryProps) 
             {summary.totalDailyPct.toFixed(2)}%
           </span>
         </div>
-      </div>
-
-      <div className="s-trend">
-        <TrendChart points={trendPoints} />
       </div>
     </div>
   );

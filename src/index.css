@@ -540,26 +540,6 @@ html:has(.s-app-mock-panel) #root {
   background: var(--border);
 }
 
-.s-trend {
-  height: 48px;
-  margin: 0 -4px;
-}
-
-.s-trend-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.s-trend-empty {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: var(--ink3);
-}
-
 /* ---- Mode Bar ---- */
 
 .s-mode-bar {
