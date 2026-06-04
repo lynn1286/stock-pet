@@ -1,49 +1,49 @@
 interface StockConfig {
-  secid: string
-  name: string
-  is_primary: boolean
-  quantity: number
-  cost_price: number
-  asset_type: 'stock' | 'etf' | 'fund'
+  secid: string;
+  name: string;
+  is_primary: boolean;
+  quantity: number;
+  cost_price: number;
+  asset_type: 'stock' | 'etf' | 'fund';
 }
 
 interface StockState {
-  secid: string
-  price: number
-  change_pct: number
-  profit: number
-  profit_pct: number
-  daily_profit: number
+  secid: string;
+  price: number;
+  change_pct: number;
+  profit: number;
+  profit_pct: number;
+  daily_profit: number;
 }
 
 interface StockRowProps {
-  stock: StockConfig
-  live: StockState | undefined
-  isEditingQty: boolean
-  isEditingCost: boolean
-  editValue: string
-  isHighlighted?: boolean
-  displayMode: 'primary' | 'summary'
-  flash?: 'up' | 'down'
-  onStartEdit: (secid: string, field: 'quantity' | 'cost_price', value: number) => void
-  onCommitEdit: () => void
-  onEditKey: (e: React.KeyboardEvent) => void
-  onEditValueChange: (value: string) => void
-  onContextMenu: (e: React.MouseEvent, secid: string) => void
+  stock: StockConfig;
+  live: StockState | undefined;
+  isEditingQty: boolean;
+  isEditingCost: boolean;
+  editValue: string;
+  isHighlighted?: boolean;
+  displayMode: 'primary' | 'summary';
+  flash?: 'up' | 'down';
+  onStartEdit: (secid: string, field: 'quantity' | 'cost_price', value: number) => void;
+  onCommitEdit: () => void;
+  onEditKey: (e: React.KeyboardEvent) => void;
+  onEditValueChange: (value: string) => void;
+  onContextMenu: (e: React.MouseEvent, secid: string) => void;
 }
 
 function fmtNum(n: number, decimals = 2): string {
-  if (n === 0) return '-'
+  if (n === 0) return '-';
   return n.toLocaleString('zh-CN', {
     minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  })
+    maximumFractionDigits: decimals,
+  });
 }
 
 function fmtProfit(n: number): string {
-  if (n === 0) return '-'
-  const sign = n > 0 ? '+' : ''
-  return `${sign}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  if (n === 0) return '-';
+  const sign = n > 0 ? '+' : '';
+  return `${sign}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function StockRow({
@@ -59,19 +59,18 @@ export function StockRow({
   onCommitEdit,
   onEditKey,
   onEditValueChange,
-  onContextMenu
+  onContextMenu,
 }: StockRowProps) {
-  const currentPrice = live?.price || 0
+  const currentPrice = live?.price || 0;
   const profit =
     stock.quantity > 0 && stock.cost_price > 0 && currentPrice > 0
       ? (currentPrice - stock.cost_price) * stock.quantity
-      : 0
-  const profitPct = stock.cost_price > 0 && currentPrice > 0
-    ? ((currentPrice - stock.cost_price) / stock.cost_price) * 100
-    : 0
-  const marketValue = stock.quantity > 0 && currentPrice > 0
-    ? stock.quantity * currentPrice
-    : 0
+      : 0;
+  const profitPct =
+    stock.cost_price > 0 && currentPrice > 0
+      ? ((currentPrice - stock.cost_price) / stock.cost_price) * 100
+      : 0;
+  const marketValue = stock.quantity > 0 && currentPrice > 0 ? stock.quantity * currentPrice : 0;
 
   return (
     <tr
@@ -83,12 +82,16 @@ export function StockRow({
         title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}
       >
         <div className="s-td-name-main">
-          {displayMode === 'primary' && stock.is_primary && <span className="s-dropdown-tag s-tag-primary">主</span>}
+          {displayMode === 'primary' && stock.is_primary && (
+            <span className="s-dropdown-tag s-tag-primary">主</span>
+          )}
           {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
           <span className="s-td-name-text">{stock.name}</span>
         </div>
         <div className="s-td-name-sub">
-          {marketValue > 0 ? `持有 ${fmtNum(marketValue)} 元` : stock.secid.split('.')[1] || stock.secid}
+          {marketValue > 0
+            ? `持有 ${fmtNum(marketValue)} 元`
+            : stock.secid.split('.')[1] || stock.secid}
         </div>
       </td>
 
@@ -98,7 +101,7 @@ export function StockRow({
             <input
               className="s-edit-input"
               value={editValue}
-              onChange={e => onEditValueChange(e.target.value)}
+              onChange={(e) => onEditValueChange(e.target.value)}
               onBlur={onCommitEdit}
               onKeyDown={onEditKey}
               autoFocus
@@ -125,7 +128,7 @@ export function StockRow({
             <input
               className="s-edit-input"
               value={editValue}
-              onChange={e => onEditValueChange(e.target.value)}
+              onChange={(e) => onEditValueChange(e.target.value)}
               onBlur={onCommitEdit}
               onKeyDown={onEditKey}
               autoFocus
@@ -153,10 +156,17 @@ export function StockRow({
       >
         {live ? (
           <>
-            <div>{stock.quantity > 0 && live.daily_profit !== 0 ? fmtProfit(live.daily_profit) : '-'}</div>
-            <div className="s-profit-pct">{live.change_pct >= 0 ? '+' : ''}{live.change_pct.toFixed(2)}%</div>
+            <div>
+              {stock.quantity > 0 && live.daily_profit !== 0 ? fmtProfit(live.daily_profit) : '-'}
+            </div>
+            <div className="s-profit-pct">
+              {live.change_pct >= 0 ? '+' : ''}
+              {live.change_pct.toFixed(2)}%
+            </div>
           </>
-        ) : '-'}
+        ) : (
+          '-'
+        )}
       </td>
 
       <td
@@ -165,10 +175,15 @@ export function StockRow({
         {stock.quantity > 0 && stock.cost_price > 0 ? (
           <>
             <div>{fmtProfit(profit)}</div>
-            <div className="s-profit-pct">{profitPct >= 0 ? '+' : ''}{profitPct.toFixed(2)}%</div>
+            <div className="s-profit-pct">
+              {profitPct >= 0 ? '+' : ''}
+              {profitPct.toFixed(2)}%
+            </div>
           </>
-        ) : '-'}
+        ) : (
+          '-'
+        )}
       </td>
     </tr>
-  )
+  );
 }

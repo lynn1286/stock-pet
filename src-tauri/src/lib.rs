@@ -575,6 +575,96 @@ fn start_polling(app: AppHandle) {
     });
 }
 
+// ========== Mock 悬浮设置面板 ==========
+
+fn position_window_top_right(window: &tauri::WebviewWindow, margin: i32) -> tauri::Result<()> {
+    if let Ok(Some(monitor)) = window.primary_monitor() {
+        let screen_size = monitor.size();
+        let screen_pos = monitor.position();
+        let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(320, 300));
+        let x = screen_pos.x + (screen_size.width as i32) - (window_size.width as i32) - margin;
+        let y = screen_pos.y + margin;
+        window.set_position(tauri::PhysicalPosition::new(x, y))?;
+    }
+    Ok(())
+}
+
+fn position_window_bottom_right(window: &tauri::WebviewWindow, margin: i32) -> tauri::Result<()> {
+    if let Ok(Some(monitor)) = window.primary_monitor() {
+        let screen_size = monitor.size();
+        let screen_pos = monitor.position();
+        let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(80, 80));
+        let x = screen_pos.x + (screen_size.width as i32) - (window_size.width as i32) - margin;
+        let y = screen_pos.y + (screen_size.height as i32) - (window_size.height as i32) - margin;
+        window.set_position(tauri::PhysicalPosition::new(x, y))?;
+    }
+    Ok(())
+}
+
+fn configure_pet_window(window: &tauri::WebviewWindow) {
+    window.set_shadow(false).ok();
+    window
+        .set_background_color(Some(tauri_utils::config::Color(0, 0, 0, 0)))
+        .ok();
+}
+
+fn configure_mock_panel(window: &tauri::WebviewWindow) -> Result<(), String> {
+    window.set_shadow(true).map_err(|e| e.to_string())?;
+    window
+        .set_background_color(Some(tauri_utils::config::Color(255, 255, 255, 255)))
+        .map_err(|e| e.to_string())?;
+    position_window_top_right(window, 20).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn create_mock_panel(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
+    let window = tauri::WebviewWindowBuilder::new(
+        app,
+        "mock-panel",
+        tauri::WebviewUrl::App("index.html#/mock-settings".into()),
+    )
+    .title("StockPet Mock")
+    .inner_size(320.0, 300.0)
+    .resizable(false)
+    .decorations(false)
+    .transparent(false)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .visible(false)
+    .build()
+    .map_err(|e| e.to_string())?;
+
+    configure_mock_panel(&window)?;
+    Ok(window)
+}
+
+#[tauri::command]
+fn open_mock_panel(app: AppHandle) -> Result<(), String> {
+    let window = match app.get_webview_window("mock-panel") {
+        Some(window) => window,
+        None => create_mock_panel(&app)?,
+    };
+
+    configure_mock_panel(&window)?;
+    window.show().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn close_mock_panel(app: AppHandle) -> Result<(), String> {
+    if let Some(window) = app.get_webview_window("mock-panel") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn is_mock_panel_open(app: AppHandle) -> bool {
+    app.get_webview_window("mock-panel")
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false)
+}
+
 // ========== 托盘 ==========
 
 fn create_tray(app: &AppHandle) -> tauri::Result<()> {
@@ -669,6 +759,9 @@ pub fn run() {
             set_display_mode,
             set_tray_display,
             refresh_prices,
+            open_mock_panel,
+            close_mock_panel,
+            is_mock_panel_open,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]
@@ -677,17 +770,13 @@ pub fn run() {
             create_tray(app.handle())?;
 
             let window = app.get_webview_window("main").unwrap();
-            window.set_shadow(false).ok();
-            window.set_background_color(Some(tauri_utils::config::Color(0, 0, 0, 0))).ok();
+            configure_pet_window(&window);
 
-            if let Ok(Some(monitor)) = window.primary_monitor() {
-                let screen_size = monitor.size();
-                let screen_pos = monitor.position();
-                let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(80, 80));
-                let margin = 20;
-                let x = screen_pos.x + (screen_size.width as i32) - (window_size.width as i32) - margin;
-                let y = screen_pos.y + (screen_size.height as i32) - (window_size.height as i32) - margin;
-                window.set_position(tauri::PhysicalPosition::new(x, y)).ok();
+            position_window_bottom_right(&window, 20).ok();
+
+            #[cfg(debug_assertions)]
+            {
+                create_mock_panel(app.handle()).ok();
             }
 
             start_polling(app.handle().clone());

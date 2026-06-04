@@ -1,5 +1,5 @@
 interface EmptyStateProps {
-  onAdd?: () => void
+  onAdd?: () => void;
 }
 
 export function EmptyState({ onAdd }: EmptyStateProps) {

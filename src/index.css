@@ -29,6 +29,13 @@ html:has(.pet-shell) #root {
   background: transparent !important;
 }
 
+/* Mock 窗口：不透明白底，避免圆角处透出桌面 */
+html:has(.s-app-mock-panel),
+html:has(.s-app-mock-panel) body,
+html:has(.s-app-mock-panel) #root {
+  background: #ffffff !important;
+}
+
 /* ---- 涨跌动画 ---- */
 
 /* 大涨 - 欢快弹跳 */
@@ -270,6 +277,7 @@ html:has(.pet-shell) #root {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  z-index: 2;
 }
 
 .pet-particle {
@@ -569,6 +577,164 @@ html:has(.pet-shell) #root {
   color: var(--ink3);
   margin-top: 4px;
   line-height: 1.4;
+}
+
+.s-mock-panel {
+  margin: 0 12px 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.s-mock-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.s-mock-panel-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.s-mock-panel-head-standalone {
+  justify-content: flex-end;
+}
+
+.s-mock-state {
+  font-size: 11px;
+  color: var(--ink2);
+}
+
+.s-mock-range {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.s-mock-range.is-disabled {
+  opacity: 0.5;
+}
+
+.s-mock-range.is-disabled .s-mock-slider {
+  cursor: not-allowed;
+}
+
+.s-mock-pct {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+}
+
+.s-mock-pct-up {
+  color: var(--up);
+}
+
+.s-mock-pct-down {
+  color: var(--down);
+}
+
+.s-mock-pct-flat {
+  color: var(--flat);
+}
+
+.s-mock-pct-muted {
+  color: var(--ink3);
+}
+
+.s-mock-slider {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.s-mock-slider:disabled {
+  accent-color: var(--border);
+}
+
+.s-mock-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 6px;
+}
+
+.s-mock-preset {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  font-size: 11px;
+  color: var(--ink2);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    color 0.15s;
+}
+
+.s-mock-preset:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.s-mock-preset:active {
+  background: var(--bg2);
+}
+
+.s-mock-preset.on {
+  border-color: var(--accent);
+  background: rgba(212, 148, 10, 0.08);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.s-app-mock-panel {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  background: var(--bg);
+  min-height: 100%;
+  height: 100%;
+}
+
+.s-mock-only {
+  min-height: 100%;
+}
+
+.s-mock-only .s-mock-panel {
+  margin: 0;
+  padding: 12px;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+}
+
+.s-mock-topbar {
+  padding: 8px 12px;
+  border-radius: 12px 12px 0 0;
+}
+
+.s-mock-topbar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.s-mock-dev-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: var(--bg2);
+  color: var(--ink2);
+  border: 1px solid var(--border);
 }
 
 /* ---- Settings Dialog ---- */

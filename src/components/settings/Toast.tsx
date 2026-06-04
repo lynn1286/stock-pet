@@ -10,13 +10,17 @@ export function Toast({ error, success, deletedName, onClearError, onUndo }: Toa
   return (
     <div className="s-toast-wrap" aria-live="polite" role="status">
       {error && (
-        <div className="s-toast s-toast-err" onClick={onClearError}>{error}</div>
+        <div className="s-toast s-toast-err" onClick={onClearError}>
+          {error}
+        </div>
       )}
       {success && (
         <div className="s-toast s-toast-ok">
           {success}
           {deletedName && (
-            <button className="s-toast-undo" onClick={onUndo}>撤销</button>
+            <button className="s-toast-undo" onClick={onUndo}>
+              撤销
+            </button>
           )}
         </div>
       )}

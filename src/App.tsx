@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import Pet from './components/Pet';
 import Settings from './components/Settings';
+import MockSettings from './components/MockSettings';
 
 function App() {
   return (
@@ -8,6 +9,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Pet />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/mock-settings" element={<MockSettings />} />
       </Routes>
     </HashRouter>
   );

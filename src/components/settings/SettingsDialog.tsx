@@ -1,21 +1,23 @@
-type DisplayMode = 'primary' | 'summary'
-type TrayDisplay = 'amount' | 'pct'
+import { MockToggle } from '../../mock/MockToggle';
+
+type DisplayMode = 'primary' | 'summary';
+type TrayDisplay = 'amount' | 'pct';
 
 interface StockItem {
-  secid: string
-  name: string
-  is_primary: boolean
+  secid: string;
+  name: string;
+  is_primary: boolean;
 }
 
 interface SettingsDialogProps {
-  open: boolean
-  displayMode: DisplayMode
-  trayDisplay: TrayDisplay
-  stocks: StockItem[]
-  onDisplayModeChange: (mode: DisplayMode) => void
-  onTrayDisplayChange: (mode: TrayDisplay) => void
-  onSetPrimary: (secid: string) => void
-  onClose: () => void
+  open: boolean;
+  displayMode: DisplayMode;
+  trayDisplay: TrayDisplay;
+  stocks: StockItem[];
+  onDisplayModeChange: (mode: DisplayMode) => void;
+  onTrayDisplayChange: (mode: TrayDisplay) => void;
+  onSetPrimary: (secid: string) => void;
+  onClose: () => void;
 }
 
 export function SettingsDialog({
@@ -28,17 +30,24 @@ export function SettingsDialog({
   onSetPrimary,
   onClose,
 }: SettingsDialogProps) {
-  if (!open) return null
+  if (!open) return null;
 
-  const primarySecid = stocks.find(s => s.is_primary)?.secid ?? stocks[0]?.secid ?? ''
+  const primarySecid = stocks.find((s) => s.is_primary)?.secid ?? stocks[0]?.secid ?? '';
 
   return (
     <div className="s-overlay" onClick={onClose}>
-      <div className="s-dialog" onClick={e => e.stopPropagation()}>
+      <div className="s-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="s-dialog-header">
           <span className="s-dialog-title">设置</span>
           <button className="s-dialog-close" onClick={onClose} aria-label="关闭">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              aria-hidden
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -74,10 +83,12 @@ export function SettingsDialog({
                 <select
                   className="s-select"
                   value={primarySecid}
-                  onChange={e => onSetPrimary(e.target.value)}
+                  onChange={(e) => onSetPrimary(e.target.value)}
                 >
-                  {stocks.map(s => (
-                    <option key={s.secid} value={s.secid}>{s.name}</option>
+                  {stocks.map((s) => (
+                    <option key={s.secid} value={s.secid}>
+                      {s.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -111,8 +122,10 @@ export function SettingsDialog({
             </div>
             <p className="s-setting-tip">菜单栏托盘图标旁显示当日收益金额还是当日涨跌幅</p>
           </div>
+
+          <MockToggle />
         </div>
       </div>
     </div>
-  )
+  );
 }

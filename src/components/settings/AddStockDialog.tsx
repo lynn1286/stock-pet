@@ -1,30 +1,30 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect } from 'react';
 
 interface SearchResult {
-  secid: string
-  name: string
-  code: string
-  market: string
-  asset_type: 'stock' | 'etf' | 'fund'
+  secid: string;
+  name: string;
+  code: string;
+  market: string;
+  asset_type: 'stock' | 'etf' | 'fund';
 }
 
 interface AddStockDialogProps {
-  open: boolean
-  searchQuery: string
-  searchResults: SearchResult[]
-  showDropdown: boolean
-  newName: string
-  newAmount: string
-  newReturn: string
-  submitting: boolean
-  error: string
-  canSubmit: boolean
-  onSearchInput: (value: string) => void
-  onSelectResult: (result: SearchResult) => void
-  onAmountChange: (value: string) => void
-  onReturnChange: (value: string) => void
-  onSubmit: () => void
-  onClose: () => void
+  open: boolean;
+  searchQuery: string;
+  searchResults: SearchResult[];
+  showDropdown: boolean;
+  newName: string;
+  newAmount: string;
+  newReturn: string;
+  submitting: boolean;
+  error: string;
+  canSubmit: boolean;
+  onSearchInput: (value: string) => void;
+  onSelectResult: (result: SearchResult) => void;
+  onAmountChange: (value: string) => void;
+  onReturnChange: (value: string) => void;
+  onSubmit: () => void;
+  onClose: () => void;
 }
 
 export function AddStockDialog({
@@ -45,31 +45,31 @@ export function AddStockDialog({
   onSubmit,
   onClose,
 }: AddStockDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // 同步 open 状态到 dialog
   useEffect(() => {
-    if (!dialogRef.current) return
+    if (!dialogRef.current) return;
     if (open && !dialogRef.current.open) {
-      dialogRef.current.showModal()
+      dialogRef.current.showModal();
       // showModal 后聚焦搜索框
       requestAnimationFrame(() => {
-        searchInputRef.current?.focus()
-      })
+        searchInputRef.current?.focus();
+      });
     } else if (!open && dialogRef.current.open) {
-      dialogRef.current.close()
+      dialogRef.current.close();
     }
-  }, [open])
+  }, [open]);
 
   function handleDialogClose() {
-    onClose()
+    onClose();
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) {
-      onClose()
+      onClose();
     }
   }
 
@@ -83,7 +83,14 @@ export function AddStockDialog({
       <div className="s-dialog-header">
         <span className="s-dialog-title">添加持仓</span>
         <button className="s-dialog-close" onClick={onClose} aria-label="关闭">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            aria-hidden
+          >
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
@@ -108,7 +115,10 @@ export function AddStockDialog({
                   <div
                     key={r.secid}
                     className="s-dropdown-item"
-                    onMouseDown={(e) => { e.preventDefault(); onSelectResult(r) }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      onSelectResult(r);
+                    }}
                   >
                     <span className="s-dropdown-name">{r.name}</span>
                     <span className="s-dropdown-code">{r.code}</span>
@@ -156,8 +166,8 @@ export function AddStockDialog({
               placeholder="0.00"
               value={newReturn}
               onChange={(e) => {
-                const v = e.target.value
-                if (/^-?\d*\.?\d*$/.test(v)) onReturnChange(v)
+                const v = e.target.value;
+                if (/^-?\d*\.?\d*$/.test(v)) onReturnChange(v);
               }}
             />
           </label>
@@ -166,11 +176,13 @@ export function AddStockDialog({
 
       <div className="s-dialog-footer">
         {error && <span className="s-dialog-error">{error}</span>}
-        <button className="s-dialog-cancel" onClick={onClose}>取消</button>
+        <button className="s-dialog-cancel" onClick={onClose}>
+          取消
+        </button>
         <button className="s-dialog-submit" onClick={onSubmit} disabled={submitting || !canSubmit}>
           {submitting ? '添加中...' : '添加'}
         </button>
       </div>
     </dialog>
-  )
+  );
 }

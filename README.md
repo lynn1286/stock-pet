@@ -21,13 +21,13 @@
 
 前往 [GitHub Releases](../../releases) 下载最新版本：
 
-| 系统 | 芯片 | 下载文件 |
-|------|------|---------|
-| macOS | Apple Silicon（M1/M2/M3/M4） | `StockPet_{version}_aarch64.dmg` |
-| macOS | Intel | `StockPet_{version}_x64.dmg` |
-| Windows | x64 | `StockPet_{version}_x64-setup.exe`（推荐）或 `StockPet_{version}_x64_en-US.msi` |
+| 系统    | 芯片                         | 下载文件                                                                        |
+| ------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| macOS   | Apple Silicon（M1/M2/M3/M4） | `StockPet_{version}_aarch64.dmg`                                                |
+| macOS   | Intel                        | `StockPet_{version}_x64.dmg`                                                    |
+| Windows | x64                          | `StockPet_{version}_x64-setup.exe`（推荐）或 `StockPet_{version}_x64_en-US.msi` |
 
-> 不确定 Mac 用哪个？点击菜单栏  → 关于本机 → 芯片，显示 Apple 就是 Apple Silicon，显示 Intel 就是 Intel。
+> 不确定 Mac 用哪个？点击菜单栏 → 关于本机 → 芯片，显示 Apple 就是 Apple Silicon，显示 Intel 就是 Intel。
 
 ### macOS 安装说明
 
@@ -72,19 +72,19 @@ pnpm tauri build
 
 持仓和配置保存在 `config.json`，路径因平台而异：
 
-| 平台 | 路径 |
-|---|---|
-| macOS | `~/Library/Application Support/stock-pet/config.json` |
+| 平台    | 路径                                                      |
+| ------- | --------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/stock-pet/config.json`     |
 | Windows | `C:\Users\<用户名>\AppData\Roaming\stock-pet\config.json` |
 
 ## 技术栈
 
-| 层 | 技术 |
-|---|---|
-| 桌面框架 | Tauri 2 |
-| 前端 | React 19 + TypeScript + Vite 8 |
-| 样式 | Tailwind CSS 4 |
-| 后端 | Rust（Tokio + Reqwest） |
+| 层       | 技术                           |
+| -------- | ------------------------------ |
+| 桌面框架 | Tauri 2                        |
+| 前端     | React 19 + TypeScript + Vite 8 |
+| 样式     | Tailwind CSS 4                 |
+| 后端     | Rust（Tokio + Reqwest）        |
 
 ## 许可
 
