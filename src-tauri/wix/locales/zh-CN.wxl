@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<WixLocalization Culture="zh-CN" xmlns="http://schemas.microsoft.com/wix/2006/localization">
-  <String Id="LaunchApp">启动 会盯盘的桌宠</String>
-  <String Id="DowngradeErrorMessage">已安装更新版本的 会盯盘的桌宠，无法降级。</String>
-  <String Id="PathEnvVarFeature">将会盯盘的桌宠的安装路径添加到系统 PATH 环境变量，以便在任意位置调用该程序。</String>
-  <String Id="InstallAppFeature">安装 会盯盘的桌宠。</String>
-</WixLocalization>

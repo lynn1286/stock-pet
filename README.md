@@ -38,7 +38,7 @@
 
 - 实时行情轮询，持仓盈亏汇总
 - 透明无边框桌宠，始终置顶，不占任务栏
-- macOS（dmg）与 Windows（exe / msi）安装包
+- macOS（dmg）与 Windows（exe）安装包
 
 ## 安装
 
@@ -46,7 +46,7 @@
 | ---- | ---- | -------- |
 | macOS | Apple Silicon（M 系列） | `StockPet_{version}_aarch64.dmg` |
 | macOS | Intel | `StockPet_{version}_x64.dmg` |
-| Windows | x64 | `StockPet_{version}_x64-setup.exe`（推荐）或 `StockPet_{version}_x64_en-US.msi` |
+| Windows | x64 | `StockPet_{version}_x64-setup.exe` |
 
 不确定 Mac 芯片类型：菜单栏 → 关于本机 → 芯片，显示 Apple 为 Apple Silicon，显示 Intel 为 Intel 版。
 
@@ -60,7 +60,7 @@ xattr -dr com.apple.quarantine /Applications/StockPet.app
 
 ### Windows
 
-下载 `.exe` 或 `.msi`，双击安装。
+下载 `.exe`，双击安装。
 
 ## 数据存储
 
@@ -89,7 +89,7 @@ pnpm lint           # ESLint + Prettier 检查
 pnpm format         # 格式化
 ```
 
-构建产物位于 `src-tauri/target/release/bundle/`（dmg / msi / exe）。
+构建产物位于 `src-tauri/target/release/bundle/`（dmg / exe）。
 
 开发模式下，在设置弹窗（齿轮）底部可开关 **Mock**，用于打开右上角状态模拟窗，调试桌宠动画，不会出现在正式包中。
 

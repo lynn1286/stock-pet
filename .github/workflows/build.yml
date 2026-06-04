@@ -24,9 +24,7 @@ jobs:
           - platform: windows-latest
             id: x86_64-pc-windows-msvc
             args: ''
-            artifact_paths: |
-              src-tauri/target/release/bundle/msi/*.msi
-              src-tauri/target/release/bundle/nsis/*.exe
+            artifact_paths: src-tauri/target/release/bundle/nsis/*.exe
 
     runs-on: ${{ matrix.platform }}
 
