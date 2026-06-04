@@ -52,14 +52,14 @@ xattr -dr com.apple.quarantine /Applications/StockPet.app
 ### 启动
 
 ```bash
-npm install
-npm run tauri dev
+pnpm install
+pnpm tauri dev
 ```
 
 ### 构建
 
 ```bash
-npm run tauri build
+pnpm tauri build
 ```
 
 产物输出到 `dist/` 目录。
