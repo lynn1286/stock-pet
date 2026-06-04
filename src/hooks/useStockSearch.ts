@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 
-type AssetType = 'stock' | 'etf' | 'fund';
+import type { AssetType } from '../lib/assetType';
 
 interface SearchResult {
   secid: string;

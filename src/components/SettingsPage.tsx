@@ -9,7 +9,6 @@ import { Toast } from './settings/Toast';
 import { AddStockDialog } from './settings/AddStockDialog';
 import { SettingsDialog } from './settings/SettingsDialog';
 import { ImageImportDialog } from './settings/ImageImportDialog';
-import { ContextMenu } from './settings/ContextMenu';
 import { PortfolioSummary } from './settings/PortfolioSummary';
 
 export function SettingsPage() {
@@ -55,9 +54,6 @@ export function SettingsPage() {
   const [newAmount, setNewAmount] = useState('');
   const [newReturn, setNewReturn] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; secid: string } | null>(
-    null,
-  );
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [dialogError, setDialogError] = useState('');
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
@@ -114,12 +110,6 @@ export function SettingsPage() {
     if (stock) {
       removeStock(stock);
     }
-    setContextMenu(null);
-  }
-
-  function handleContextMenu(e: React.MouseEvent, secid: string) {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY, secid });
   }
 
   async function handleAdd() {
@@ -271,50 +261,51 @@ export function SettingsPage() {
 
       <PortfolioSummary stocks={config.stocks} liveStocks={liveStocks} />
 
-      <table className="s-table">
-        <thead>
-          <tr>
-            <th className="s-th-name">名称</th>
-            <th className="s-th-num">份额</th>
-            <th className="s-th-num">成本价</th>
-            <th className="s-th-num">现价</th>
-            <th className="s-th-num">当日收益</th>
-            <th className="s-th-num">盈亏</th>
-            <th className="s-th-action" aria-label="操作"></th>
-          </tr>
-        </thead>
-        {config.stocks.length === 0 ? (
-          <tbody>
+      <div className="s-table-scroll">
+        <table className="s-table">
+          <thead>
             <tr>
-              <td colSpan={7}>
-                <EmptyState onAdd={() => setShowAddDialog(true)} />
-              </td>
+              <th className="s-th-name">名称</th>
+              <th className="s-th-num">份额</th>
+              <th className="s-th-num">成本价</th>
+              <th className="s-th-num">现价</th>
+              <th className="s-th-num">当日收益</th>
+              <th className="s-th-num">盈亏</th>
+              <th className="s-th-action" aria-label="操作"></th>
             </tr>
-          </tbody>
-        ) : (
-          <tbody>
-            {config.stocks.map((stock) => (
-              <StockRow
-                key={stock.secid}
-                stock={stock}
-                live={liveStocks.get(stock.secid)}
-                isEditingQty={editing?.secid === stock.secid && editing.field === 'quantity'}
-                isEditingCost={editing?.secid === stock.secid && editing.field === 'cost_price'}
-                editValue={editValue}
-                isHighlighted={newlyAdded === stock.secid}
-                displayMode={config.display_mode}
-                flash={flashMap.get(stock.secid)}
-                onStartEdit={startEdit}
-                onCommitEdit={handleCommitEdit}
-                onEditKey={handleEditKeyDown}
-                onEditValueChange={setEditValue}
-                onContextMenu={handleContextMenu}
-                onDelete={handleDelete}
-              />
-            ))}
-          </tbody>
-        )}
-      </table>
+          </thead>
+          {config.stocks.length === 0 ? (
+            <tbody>
+              <tr>
+                <td colSpan={7}>
+                  <EmptyState onAdd={() => setShowAddDialog(true)} />
+                </td>
+              </tr>
+            </tbody>
+          ) : (
+            <tbody>
+              {config.stocks.map((stock) => (
+                <StockRow
+                  key={stock.secid}
+                  stock={stock}
+                  live={liveStocks.get(stock.secid)}
+                  isEditingQty={editing?.secid === stock.secid && editing.field === 'quantity'}
+                  isEditingCost={editing?.secid === stock.secid && editing.field === 'cost_price'}
+                  editValue={editValue}
+                  isHighlighted={newlyAdded === stock.secid}
+                  displayMode={config.display_mode}
+                  flash={flashMap.get(stock.secid)}
+                  onStartEdit={startEdit}
+                  onCommitEdit={handleCommitEdit}
+                  onEditKey={handleEditKeyDown}
+                  onEditValueChange={setEditValue}
+                  onDelete={handleDelete}
+                />
+              ))}
+            </tbody>
+          )}
+        </table>
+      </div>
 
       <SettingsDialog
         open={showSettingsDialog}
@@ -377,16 +368,6 @@ export function SettingsPage() {
         onClearError={() => setError('')}
         onUndo={undoDelete}
       />
-
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          stockName={config.stocks.find((s) => s.secid === contextMenu.secid)?.name ?? ''}
-          onDelete={() => handleDelete(contextMenu.secid)}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
     </div>
   );
 }

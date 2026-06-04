@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useImageImport, type PreviewRow } from '../../hooks/useImageImport';
-
-type AssetType = 'stock' | 'etf' | 'fund';
+import { assetTypeLabel, type AssetType } from '../../lib/assetType';
 
 type FetchPrice = (secid: string, assetType: AssetType) => Promise<number>;
 
@@ -27,10 +26,6 @@ function readAsDataURL(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
-}
-
-function assetLabel(t: AssetType): string {
-  return t === 'fund' ? '基金' : t === 'etf' ? 'ETF' : '股票';
 }
 
 /** 名称搜索命中多个代码时才需要人工确认 */
@@ -335,7 +330,7 @@ function ImportRow({ row, onSetMatch, onResearch, onUpdateValue, onRemove }: Imp
           >
             {row.candidates.map((c) => (
               <option key={c.secid} value={c.secid}>
-                {c.name}（{c.code}·{assetLabel(c.asset_type)}）
+                {c.name}（{c.code}·{assetTypeLabel(c.asset_type)}）
               </option>
             ))}
           </select>

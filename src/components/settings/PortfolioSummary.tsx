@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
+import type { AssetType } from '../../lib/assetType';
 
 interface StockConfig {
   secid: string;
   name: string;
   quantity: number;
   cost_price: number;
-  asset_type: 'stock' | 'etf' | 'fund';
+  asset_type: AssetType;
 }
 
 interface StockState {

@@ -2,7 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { userMessage } from '../utils/errmsg';
 
-type AssetType = 'stock' | 'etf' | 'fund';
+import type { AssetType } from '../lib/assetType';
 
 interface RecognizedHoldingRow {
   name: string;

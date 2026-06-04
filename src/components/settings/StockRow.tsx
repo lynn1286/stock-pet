@@ -1,10 +1,12 @@
+import { assetTypeLabel, assetTypeTagClass, type AssetType } from '../../lib/assetType';
+
 interface StockConfig {
   secid: string;
   name: string;
   is_primary: boolean;
   quantity: number;
   cost_price: number;
-  asset_type: 'stock' | 'etf' | 'fund';
+  asset_type: AssetType;
 }
 
 interface StockState {
@@ -29,7 +31,6 @@ interface StockRowProps {
   onCommitEdit: () => void;
   onEditKey: (e: React.KeyboardEvent) => void;
   onEditValueChange: (value: string) => void;
-  onContextMenu: (e: React.MouseEvent, secid: string) => void;
   onDelete: (secid: string) => void;
 }
 
@@ -60,7 +61,6 @@ export function StockRow({
   onCommitEdit,
   onEditKey,
   onEditValueChange,
-  onContextMenu,
   onDelete,
 }: StockRowProps) {
   const currentPrice = live?.price || 0;
@@ -77,7 +77,6 @@ export function StockRow({
   return (
     <tr
       className={`${displayMode === 'primary' && stock.is_primary ? 's-tr-primary' : ''} ${isHighlighted ? 's-tr-highlight' : ''} ${flash ? `s-tr-flash-${flash}` : ''}`}
-      onContextMenu={(e) => onContextMenu(e, stock.secid)}
     >
       <td
         className="s-td-name"
@@ -87,7 +86,9 @@ export function StockRow({
           {displayMode === 'primary' && stock.is_primary && (
             <span className="s-dropdown-tag s-tag-primary">主</span>
           )}
-          {stock.asset_type === 'fund' && <span className="s-dropdown-tag s-tag-fund">基金</span>}
+          <span className={`s-dropdown-tag ${assetTypeTagClass(stock.asset_type)}`}>
+            {assetTypeLabel(stock.asset_type)}
+          </span>
           <span className="s-td-name-text">{stock.name}</span>
         </div>
         <div className="s-td-name-sub">

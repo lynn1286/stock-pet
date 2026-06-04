@@ -1,4 +1,4 @@
-use chrono::{Datelike, Local, Timelike, Weekday};
+use chrono::{Datelike, Local, NaiveDate, Timelike, Weekday};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -12,11 +12,15 @@ use tokio::time::{sleep, Duration};
 // ========== 数据结构 ==========
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 pub enum AssetType {
     Stock,
-    Etf,
-    Fund,
+    /// 场内 ETF / LOF 等，走股票行情接口
+    #[serde(alias = "etf")]
+    ListedFund,
+    /// 场外申购基金，走净值接口
+    #[serde(alias = "fund")]
+    OtcFund,
 }
 
 impl Default for AssetType {
@@ -145,9 +149,11 @@ impl Default for AppConfig {
 struct AppState {
     config: Mutex<AppConfig>,
     stocks_state: Mutex<Vec<StockState>>,
+    /// 当日 22:00 晚间净值是否已拉取
+    evening_fetch_date: Mutex<Option<NaiveDate>>,
 }
 
-#[derive(Debug, Clone, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 enum TradeStatus {
     Trading,
@@ -165,11 +171,41 @@ fn get_config_path() -> PathBuf {
     config_dir.join("config.json")
 }
 
+/// 纠正历史误标的类型（如场内 ETF 曾存成 stock）。返回是否有改动。
+fn normalize_asset_type(stock: &mut StockConfig) -> bool {
+    let before = stock.asset_type.clone();
+    if stock.asset_type != AssetType::Stock {
+        return false;
+    }
+    let upper = stock.name.to_uppercase();
+    let looks_listed_fund = (upper.contains("ETF") && !upper.contains("联接") && !upper.contains("連接"))
+        || upper.contains("LOF");
+    if looks_listed_fund {
+        stock.asset_type = AssetType::ListedFund;
+    }
+    before != stock.asset_type
+}
+
+fn migrate_config_types(config: &mut AppConfig) -> bool {
+    let mut changed = false;
+    for stock in &mut config.stocks {
+        if normalize_asset_type(stock) {
+            changed = true;
+        }
+    }
+    if changed {
+        save_config(config);
+    }
+    changed
+}
+
 fn load_config() -> AppConfig {
     let path = get_config_path();
     if path.exists() {
         let content = std::fs::read_to_string(&path).unwrap_or_default();
-        serde_json::from_str(&content).unwrap_or_default()
+        let mut config: AppConfig = serde_json::from_str(&content).unwrap_or_default();
+        migrate_config_types(&mut config);
+        config
     } else {
         let config = AppConfig::default();
         save_config(&config);
@@ -211,6 +247,21 @@ fn get_trade_status() -> TradeStatus {
         return TradeStatus::Rest;
     }
     TradeStatus::Trading
+}
+
+/// 场外基金净值多在 20:00–22:00 公布，工作日 22:00 拉一次即可
+const EVENING_NAV_REFRESH_HOUR: u32 = 22;
+
+fn should_fetch_evening_nav(state: &AppState) -> bool {
+    if !is_trading_day() || Local::now().hour() != EVENING_NAV_REFRESH_HOUR {
+        return false;
+    }
+    let today = Local::now().date_naive();
+    *state.evening_fetch_date.lock().unwrap() != Some(today)
+}
+
+fn mark_evening_nav_fetched(state: &AppState) {
+    *state.evening_fetch_date.lock().unwrap() = Some(Local::now().date_naive());
 }
 
 // ========== 数据获取 ==========
@@ -341,7 +392,7 @@ fn build_stock_state(
 
 async fn fetch_price(stock: &StockConfig) -> Result<(f64, f64, String, String), String> {
     match stock.asset_type {
-        AssetType::Fund => fetch_fund_price(&stock.secid).await,
+        AssetType::OtcFund => fetch_fund_price(&stock.secid).await,
         _ => fetch_stock_price(&stock.secid).await,
     }
 }
@@ -492,12 +543,12 @@ async fn search_stocks_api(query: &str) -> Result<Vec<SearchResult>, String> {
         let market = if market_raw == "1" { "1" } else { "0" };
         let secid = format!("{}.{}", market, code);
 
-        // JYS=OTCFUND 是场外基金，用 fundgz 拉净值；其余用 push2 拉行情
+        // JYS=OTCFUND 为场外基金；SecurityTypeName 含 ETF 或为「基金」表示场内基金
         let jys = item.get("JYS").and_then(|v| v.as_str()).unwrap_or("");
         let asset_type = if jys == "OTCFUND" {
-            AssetType::Fund
-        } else if stock_type.contains("ETF") {
-            AssetType::Etf
+            AssetType::OtcFund
+        } else if stock_type.contains("ETF") || stock_type == "基金" {
+            AssetType::ListedFund
         } else {
             AssetType::Stock
         };
@@ -526,7 +577,7 @@ const VISION_PROMPT: &str = "你是基金/股票持仓截图识别助手。从�
 - cost_price: 成本价 / 成本，图中明确给出才填数字，否则填 0\n\
 - normalized_name: 你判断该标的在中国 A 股市场的标准简称（含份额类别，如「东财通信C」「广发纳斯达克100ETF联接人民币C」）。名称被截断或是平台缩写时，结合上下文还原成最可能的完整标准简称；无把握就回退为 name\n\
 - guess_code: 你判断的 6 位代码，有把握才填，否则空字符串\n\
-- asset_type: \"stock\" | \"etf\" | \"fund\"（场外基金为 fund，场内 ETF 为 etf）\n\
+- asset_type: \"stock\" | \"listed_fund\" | \"otc_fund\"（场外申购为 otc_fund，场内 ETF/LOF 为 listed_fund）\n\
 规则：\n\
 - 「昨日收益」「当日收益」不是 profit，profit 只取「持有收益 / 累计收益 / 持仓盈亏」这一列。\n\
 - 跳过分组标题（如「XX 基金财富号」）、营销与资讯条目、合计 / 总览行。\n\
@@ -574,8 +625,8 @@ fn truncate_chars(s: &str, max: usize) -> String {
 
 fn parse_asset_type(raw: &str) -> AssetType {
     match raw.trim().to_lowercase().as_str() {
-        "etf" => AssetType::Etf,
-        "fund" => AssetType::Fund,
+        "etf" | "listed_fund" | "listedfund" => AssetType::ListedFund,
+        "fund" | "otc_fund" | "otcfund" => AssetType::OtcFund,
         _ => AssetType::Stock,
     }
 }
@@ -772,7 +823,7 @@ async fn fund_fulltext_search(client: &reqwest::Client, key: &str) -> Vec<Search
             name,
             code: code.to_string(),
             market: "0".to_string(),
-            asset_type: AssetType::Fund,
+            asset_type: AssetType::OtcFund,
         });
     }
     results
@@ -883,23 +934,29 @@ async fn search_candidates(client: &reqwest::Client, query: &str) -> Vec<SearchR
 
 // ========== Tauri 命令 ==========
 
-#[tauri::command]
-async fn refresh_prices(
-    state: tauri::State<'_, AppState>,
-    app: AppHandle,
-) -> Result<Vec<StockState>, String> {
+async fn refresh_and_emit(app: &AppHandle) -> (Vec<StockState>, AppConfig) {
+    let state = app.state::<AppState>();
     let config = state.config.lock().unwrap().clone();
     let stocks = fetch_all_stocks(&config.stocks).await;
     *state.stocks_state.lock().unwrap() = stocks.clone();
     let display = calc_display_state(&stocks, &config.display_mode, &config);
     let _ = app.emit("stock-state", &display);
     let _ = app.emit("stocks-update", &stocks);
+    refresh_tray(app, &stocks, &config);
+    (stocks, config)
+}
+
+#[tauri::command]
+async fn refresh_prices(app: AppHandle) -> Result<Vec<StockState>, String> {
+    let (stocks, _) = refresh_and_emit(&app).await;
     Ok(stocks)
 }
 
 #[tauri::command]
 fn get_config(state: tauri::State<AppState>) -> AppConfig {
-    state.config.lock().unwrap().clone()
+    let mut config = state.config.lock().unwrap();
+    migrate_config_types(&mut config);
+    config.clone()
 }
 
 #[tauri::command]
@@ -1132,6 +1189,19 @@ async fn recognize_holdings(
 
 // ========== 轮询逻辑 ==========
 
+fn run_startup_price_sync(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        let config = state.config.lock().unwrap().clone();
+        if !config.stocks.is_empty() {
+            refresh_and_emit(&app).await;
+            if is_trading_day() && Local::now().hour() == EVENING_NAV_REFRESH_HOUR {
+                mark_evening_nav_fetched(&state);
+            }
+        }
+    });
+}
+
 fn start_polling(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         loop {
@@ -1140,28 +1210,27 @@ fn start_polling(app: AppHandle) {
 
             let app_state = app.state::<AppState>();
 
-            let (stocks, config) = match trade_status {
-                TradeStatus::Trading => {
-                    let config = app_state.config.lock().unwrap().clone();
-                    let stocks = fetch_all_stocks(&config.stocks).await;
-                    *app_state.stocks_state.lock().unwrap() = stocks.clone();
-                    let _ = app.emit("stocks-update", &stocks);
-                    (stocks, config)
+            let evening_fetch = should_fetch_evening_nav(&app_state);
+            let (stocks, config) = if trade_status == TradeStatus::Trading || evening_fetch {
+                let result = refresh_and_emit(&app).await;
+                if evening_fetch {
+                    mark_evening_nav_fetched(&app_state);
                 }
-                _ => {
-                    let config = app_state.config.lock().unwrap().clone();
-                    let stocks = app_state.stocks_state.lock().unwrap().clone();
-                    (stocks, config)
-                }
+                result
+            } else {
+                let config = app_state.config.lock().unwrap().clone();
+                let stocks = app_state.stocks_state.lock().unwrap().clone();
+                (stocks, config)
             };
 
             let display = calc_display_state(&stocks, &config.display_mode, &config);
             let _ = app.emit("stock-state", &display);
             refresh_tray(&app, &stocks, &config);
 
-            let interval = match trade_status {
-                TradeStatus::Trading => Duration::from_secs(10),
-                _ => Duration::from_secs(30),
+            let interval = if trade_status == TradeStatus::Trading {
+                Duration::from_secs(10)
+            } else {
+                Duration::from_secs(30)
             };
             sleep(interval).await;
         }
@@ -1391,6 +1460,7 @@ pub fn run() {
         .manage(AppState {
             config: Mutex::new(load_config()),
             stocks_state: Mutex::new(Vec::new()),
+            evening_fetch_date: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             get_config,
@@ -1428,7 +1498,9 @@ pub fn run() {
                 create_mock_panel(app.handle()).ok();
             }
 
-            start_polling(app.handle().clone());
+            let handle = app.handle().clone();
+            run_startup_price_sync(handle.clone());
+            start_polling(handle);
             Ok(())
         })
         .run(tauri::generate_context!())

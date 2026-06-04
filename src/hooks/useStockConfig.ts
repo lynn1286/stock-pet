@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { userMessage } from '../utils/errmsg';
 
-type AssetType = 'stock' | 'etf' | 'fund';
+import type { AssetType } from '../lib/assetType';
 type DisplayMode = 'primary' | 'summary';
 type TrayDisplay = 'amount' | 'pct';
 
