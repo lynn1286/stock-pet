@@ -1,13 +1,13 @@
+use chrono::{Datelike, Local, Timelike, Weekday};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use tauri::{
-    AppHandle, Emitter, Manager,
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Emitter, Manager, WindowEvent,
 };
 use tokio::time::{sleep, Duration};
-use chrono::{Local, Datelike, Timelike, Weekday};
 
 // ========== 数据结构 ==========
 
@@ -155,8 +155,12 @@ fn is_trading_hours() -> bool {
 }
 
 fn get_trade_status() -> TradeStatus {
-    if !is_trading_day() { return TradeStatus::Sleep; }
-    if !is_trading_hours() { return TradeStatus::Rest; }
+    if !is_trading_day() {
+        return TradeStatus::Sleep;
+    }
+    if !is_trading_hours() {
+        return TradeStatus::Rest;
+    }
     TradeStatus::Trading
 }
 
@@ -167,14 +171,24 @@ async fn fetch_stock_price(secid: &str) -> Result<(f64, f64, String, String), St
         "http://push2.eastmoney.com/api/qt/stock/get?secid={}&fields=f57,f58,f43,f170,f171",
         secid
     );
-    let resp = reqwest::get(&url).await.map_err(|e| format!("请求失败: {}", e))?;
+    let resp = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("请求失败: {}", e))?;
     let json: serde_json::Value = resp.json().await.map_err(|e| format!("解析失败: {}", e))?;
     let data = json.get("data").ok_or("无数据字段")?;
 
     let price = data.get("f43").and_then(|v| v.as_f64()).unwrap_or(0.0) / 100.0;
     let change_pct = data.get("f170").and_then(|v| v.as_f64()).unwrap_or(0.0) / 100.0;
-    let name = data.get("f58").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let symbol = data.get("f57").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let name = data
+        .get("f58")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let symbol = data
+        .get("f57")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     Ok((price, change_pct, name, symbol))
 }
@@ -183,7 +197,9 @@ async fn fetch_fund_price(secid: &str) -> Result<(f64, f64, String, String), Str
     // secid 格式: "0.000001"，提取基金代码
     let code = secid.split('.').last().unwrap_or(secid);
     let url = format!("http://fundgz.1234567.com.cn/js/{}.js", code);
-    let resp = reqwest::get(&url).await.map_err(|e| format!("请求失败: {}", e))?;
+    let resp = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("请求失败: {}", e))?;
     let text = resp.text().await.map_err(|e| format!("读取失败: {}", e))?;
 
     // 返回格式: jsonpgz({"fundcode":"000001","name":"...","gsz":"1.23","gszzl":"0.45",...});
@@ -191,17 +207,40 @@ async fn fetch_fund_price(secid: &str) -> Result<(f64, f64, String, String), Str
         .strip_prefix("jsonpgz(")
         .and_then(|s| s.strip_suffix(");"))
         .ok_or("解析格式错误")?;
-    let data: serde_json::Value = serde_json::from_str(json_str).map_err(|e| format!("JSON解析失败: {}", e))?;
+    let data: serde_json::Value =
+        serde_json::from_str(json_str).map_err(|e| format!("JSON解析失败: {}", e))?;
 
-    let price = data.get("gsz").and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-    let change_pct = data.get("gszzl").and_then(|v| v.as_str()).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
-    let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let symbol = data.get("fundcode").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let price = data
+        .get("gsz")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let change_pct = data
+        .get("gszzl")
+        .and_then(|v| v.as_str())
+        .and_then(|s| s.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    let name = data
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let symbol = data
+        .get("fundcode")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
 
     Ok((price, change_pct, name, symbol))
 }
 
-fn build_stock_state(config: &StockConfig, price: f64, change_pct: f64, name: String, symbol: String) -> StockState {
+fn build_stock_state(
+    config: &StockConfig,
+    price: f64,
+    change_pct: f64,
+    name: String,
+    symbol: String,
+) -> StockState {
     let market_value = price * config.quantity;
     let cost_value = config.cost_price * config.quantity;
     let profit = market_value - cost_value;
@@ -217,9 +256,21 @@ fn build_stock_state(config: &StockConfig, price: f64, change_pct: f64, name: St
     };
 
     let status = if config.quantity > 0.0 && config.cost_price > 0.0 {
-        if profit > 0.01 { "up" } else if profit < -0.01 { "down" } else { "flat" }
+        if profit > 0.01 {
+            "up"
+        } else if profit < -0.01 {
+            "down"
+        } else {
+            "flat"
+        }
     } else {
-        if change_pct > 0.0 { "up" } else if change_pct < 0.0 { "down" } else { "flat" }
+        if change_pct > 0.0 {
+            "up"
+        } else if change_pct < 0.0 {
+            "down"
+        } else {
+            "flat"
+        }
     };
 
     StockState {
@@ -264,19 +315,27 @@ async fn fetch_all_stocks(stocks: &[StockConfig]) -> Vec<StockState> {
 fn calc_display_state(stocks: &[StockState], mode: &DisplayMode, config: &AppConfig) -> StockState {
     if stocks.is_empty() {
         return StockState {
-            price: 0.0, change_pct: 0.0,
-            name: "无持仓".to_string(), symbol: String::new(),
-            secid: String::new(), status: "flat".to_string(),
-            quantity: 0.0, cost_price: 0.0,
-            market_value: 0.0, cost_value: 0.0,
-            profit: 0.0, profit_pct: 0.0,
+            price: 0.0,
+            change_pct: 0.0,
+            name: "无持仓".to_string(),
+            symbol: String::new(),
+            secid: String::new(),
+            status: "flat".to_string(),
+            quantity: 0.0,
+            cost_price: 0.0,
+            market_value: 0.0,
+            cost_value: 0.0,
+            profit: 0.0,
+            profit_pct: 0.0,
             daily_profit: 0.0,
         };
     }
 
     match mode {
         DisplayMode::Primary => {
-            let primary_secid = config.stocks.iter()
+            let primary_secid = config
+                .stocks
+                .iter()
                 .find(|s| s.is_primary)
                 .map(|s| s.secid.as_str());
             if let Some(secid) = primary_secid {
@@ -295,7 +354,13 @@ fn calc_display_state(stocks: &[StockState], mode: &DisplayMode, config: &AppCon
             } else {
                 0.0
             };
-            let status = if total_daily_profit > 0.01 { "up" } else if total_daily_profit < -0.01 { "down" } else { "flat" };
+            let status = if total_daily_profit > 0.01 {
+                "up"
+            } else if total_daily_profit < -0.01 {
+                "down"
+            } else {
+                "flat"
+            };
 
             StockState {
                 price: 0.0,
@@ -333,7 +398,9 @@ async fn search_stocks_api(query: &str) -> Result<Vec<SearchResult>, String> {
         query
     );
 
-    let resp = reqwest::get(&url).await.map_err(|e| format!("搜索失败: {}", e))?;
+    let resp = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("搜索失败: {}", e))?;
     let json: serde_json::Value = resp.json().await.map_err(|e| format!("解析失败: {}", e))?;
 
     let data = json.get("QuotationCodeTable").and_then(|t| t.get("Data"));
@@ -343,13 +410,31 @@ async fn search_stocks_api(query: &str) -> Result<Vec<SearchResult>, String> {
 
     let mut results = Vec::new();
     for item in items {
-        let code = item.get("Code").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let name = item.get("Name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let market_raw = item.get("MktNum").and_then(|v| v.as_str()).unwrap_or("0").to_string();
-        let stock_type = item.get("SecurityTypeName").and_then(|v| v.as_str()).unwrap_or("");
+        let code = item
+            .get("Code")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let name = item
+            .get("Name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let market_raw = item
+            .get("MktNum")
+            .and_then(|v| v.as_str())
+            .unwrap_or("0")
+            .to_string();
+        let stock_type = item
+            .get("SecurityTypeName")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
 
         // 保留 A 股、ETF、基金
-        let is_valid = matches!(stock_type, "沪A" | "深A" | "沪ETF" | "深ETF" | "创业板" | "科创板" | "北交所" | "基金");
+        let is_valid = matches!(
+            stock_type,
+            "沪A" | "深A" | "沪ETF" | "深ETF" | "创业板" | "科创板" | "北交所" | "基金"
+        );
         if !is_valid {
             continue;
         }
@@ -383,7 +468,10 @@ async fn search_stocks_api(query: &str) -> Result<Vec<SearchResult>, String> {
 // ========== Tauri 命令 ==========
 
 #[tauri::command]
-async fn refresh_prices(state: tauri::State<'_, AppState>, app: AppHandle) -> Result<Vec<StockState>, String> {
+async fn refresh_prices(
+    state: tauri::State<'_, AppState>,
+    app: AppHandle,
+) -> Result<Vec<StockState>, String> {
     let config = state.config.lock().unwrap().clone();
     let stocks = fetch_all_stocks(&config.stocks).await;
     *state.stocks_state.lock().unwrap() = stocks.clone();
@@ -423,19 +511,38 @@ async fn fetch_single_price(secid: String, asset_type: AssetType) -> Result<f64,
 }
 
 #[tauri::command]
-fn add_stock(secid: String, name: String, quantity: f64, cost_price: f64, asset_type: AssetType, state: tauri::State<AppState>) -> Result<(), String> {
+fn add_stock(
+    secid: String,
+    name: String,
+    quantity: f64,
+    cost_price: f64,
+    asset_type: AssetType,
+    state: tauri::State<AppState>,
+) -> Result<(), String> {
     let mut config = state.config.lock().unwrap();
     if config.stocks.iter().any(|s| s.secid == secid) {
         return Err("已存在".to_string());
     }
     let is_primary = config.stocks.is_empty();
-    config.stocks.push(StockConfig { secid, name, is_primary, quantity, cost_price, asset_type });
+    config.stocks.push(StockConfig {
+        secid,
+        name,
+        is_primary,
+        quantity,
+        cost_price,
+        asset_type,
+    });
     save_config(&config);
     Ok(())
 }
 
 #[tauri::command]
-fn update_stock(secid: String, quantity: f64, cost_price: f64, state: tauri::State<AppState>) -> Result<(), String> {
+fn update_stock(
+    secid: String,
+    quantity: f64,
+    cost_price: f64,
+    state: tauri::State<AppState>,
+) -> Result<(), String> {
     let mut config = state.config.lock().unwrap();
     if let Some(stock) = config.stocks.iter_mut().find(|s| s.secid == secid) {
         stock.quantity = quantity;
@@ -450,7 +557,12 @@ fn update_stock(secid: String, quantity: f64, cost_price: f64, state: tauri::Sta
 #[tauri::command]
 fn remove_stock(secid: String, state: tauri::State<AppState>) -> Result<(), String> {
     let mut config = state.config.lock().unwrap();
-    let was_primary = config.stocks.iter().find(|s| s.secid == secid).map(|s| s.is_primary).unwrap_or(false);
+    let was_primary = config
+        .stocks
+        .iter()
+        .find(|s| s.secid == secid)
+        .map(|s| s.is_primary)
+        .unwrap_or(false);
     config.stocks.retain(|s| s.secid != secid);
     if was_primary {
         if let Some(first) = config.stocks.first_mut() {
@@ -472,7 +584,11 @@ fn set_primary(secid: String, state: tauri::State<AppState>) -> Result<(), Strin
 }
 
 #[tauri::command]
-fn set_display_mode(mode: DisplayMode, state: tauri::State<AppState>, app: AppHandle) -> Result<(), String> {
+fn set_display_mode(
+    mode: DisplayMode,
+    state: tauri::State<AppState>,
+    app: AppHandle,
+) -> Result<(), String> {
     {
         let mut config = state.config.lock().unwrap();
         config.display_mode = mode;
@@ -487,24 +603,24 @@ fn set_display_mode(mode: DisplayMode, state: tauri::State<AppState>, app: AppHa
 // ========== 托盘刷新 ==========
 
 fn refresh_tray(app: &AppHandle, stocks: &[StockState], config: &AppConfig) {
-    let Some(tray) = app.tray_by_id("main-tray") else { return };
+    let Some(tray) = app.tray_by_id("main-tray") else {
+        return;
+    };
 
     let trade_status = get_trade_status();
     let display = calc_display_state(stocks, &config.display_mode, config);
 
     let title = match trade_status {
-        TradeStatus::Trading | TradeStatus::Rest => {
-            match config.tray_display {
-                TrayDisplay::Amount => {
-                    let sign = if display.daily_profit >= 0.0 { "+" } else { "" };
-                    format!("\u{2002}{}{:.0}元", sign, display.daily_profit)
-                }
-                TrayDisplay::Pct => {
-                    let sign = if display.change_pct >= 0.0 { "+" } else { "" };
-                    format!("\u{2002}{}{:.2}%", sign, display.change_pct)
-                }
+        TradeStatus::Trading | TradeStatus::Rest => match config.tray_display {
+            TrayDisplay::Amount => {
+                let sign = if display.daily_profit >= 0.0 { "+" } else { "" };
+                format!("\u{2002}{}{:.0}元", sign, display.daily_profit)
             }
-        }
+            TrayDisplay::Pct => {
+                let sign = if display.change_pct >= 0.0 { "+" } else { "" };
+                format!("\u{2002}{}{:.2}%", sign, display.change_pct)
+            }
+        },
         TradeStatus::Sleep => "\u{2002}休息".to_string(),
     };
 
@@ -525,7 +641,11 @@ fn refresh_tray(app: &AppHandle, stocks: &[StockState], config: &AppConfig) {
 }
 
 #[tauri::command]
-fn set_tray_display(mode: TrayDisplay, state: tauri::State<AppState>, app: AppHandle) -> Result<(), String> {
+fn set_tray_display(
+    mode: TrayDisplay,
+    state: tauri::State<AppState>,
+    app: AppHandle,
+) -> Result<(), String> {
     {
         let mut cfg = state.config.lock().unwrap();
         cfg.tray_display = mode;
@@ -581,7 +701,9 @@ fn position_window_top_right(window: &tauri::WebviewWindow, margin: i32) -> taur
     if let Ok(Some(monitor)) = window.primary_monitor() {
         let screen_size = monitor.size();
         let screen_pos = monitor.position();
-        let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(320, 300));
+        let window_size = window
+            .outer_size()
+            .unwrap_or(tauri::PhysicalSize::new(320, 300));
         let x = screen_pos.x + (screen_size.width as i32) - (window_size.width as i32) - margin;
         let y = screen_pos.y + margin;
         window.set_position(tauri::PhysicalPosition::new(x, y))?;
@@ -593,7 +715,9 @@ fn position_window_bottom_right(window: &tauri::WebviewWindow, margin: i32) -> t
     if let Ok(Some(monitor)) = window.primary_monitor() {
         let screen_size = monitor.size();
         let screen_pos = monitor.position();
-        let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(100, 100));
+        let window_size = window
+            .outer_size()
+            .unwrap_or(tauri::PhysicalSize::new(100, 100));
         let x = screen_pos.x + (screen_size.width as i32) - (window_size.width as i32) - margin;
         let y = screen_pos.y + (screen_size.height as i32) - (window_size.height as i32) - margin;
         window.set_position(tauri::PhysicalPosition::new(x, y))?;
@@ -665,6 +789,70 @@ fn is_mock_panel_open(app: AppHandle) -> bool {
         .unwrap_or(false)
 }
 
+// ========== 设置窗口 ==========
+
+/// macOS 托盘应用默认 Accessory；打开设置时切 Regular 并显示 Dock 图标，便于切换器识别。
+#[cfg(target_os = "macos")]
+fn set_activation_for_settings(app: &AppHandle, settings_visible: bool) {
+    let policy = if settings_visible {
+        tauri::ActivationPolicy::Regular
+    } else {
+        tauri::ActivationPolicy::Accessory
+    };
+    let _ = app.set_activation_policy(policy);
+    let _ = app.set_dock_visibility(settings_visible);
+}
+
+fn bind_settings_window_lifecycle(app: &AppHandle, window: &tauri::WebviewWindow) {
+    let app_handle = app.clone();
+    window.on_window_event(move |event| {
+        if let WindowEvent::Destroyed = event {
+            #[cfg(target_os = "macos")]
+            set_activation_for_settings(&app_handle, false);
+        }
+    });
+}
+
+fn open_or_focus_settings(app: &AppHandle) {
+    #[cfg(target_os = "macos")]
+    set_activation_for_settings(app, true);
+
+    let icon = app.default_window_icon().cloned();
+
+    if let Some(window) = app.get_webview_window("settings") {
+        if let Some(icon) = &icon {
+            window.set_icon(icon.clone()).ok();
+        }
+        window.show().ok();
+        window.set_focus().ok();
+        return;
+    }
+
+    let builder = tauri::WebviewWindowBuilder::new(
+        app,
+        "settings",
+        tauri::WebviewUrl::App("index.html#/settings".into()),
+    )
+    .title("设置")
+    .inner_size(560.0, 480.0)
+    .center()
+    .skip_taskbar(false);
+
+    let build_result = match icon {
+        Some(icon) => builder.icon(icon).and_then(|b| b.build()),
+        None => builder.build(),
+    };
+
+    match build_result {
+        Ok(window) => {
+            bind_settings_window_lifecycle(app, &window);
+            window.show().ok();
+            window.set_focus().ok();
+        }
+        Err(e) => log::error!("open settings window failed: {e}"),
+    }
+}
+
 // ========== 托盘 ==========
 
 fn create_tray(app: &AppHandle) -> tauri::Result<()> {
@@ -680,39 +868,23 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .title("\u{2002}--")
         .tooltip("股票桌宠 - 加载中...")
         .menu(&menu)
-        .on_menu_event(move |app, event| {
-            match event.id.as_ref() {
-                "show" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        window.show().ok();
-                        window.set_focus().ok();
-                    }
+        .on_menu_event(move |app, event| match event.id.as_ref() {
+            "show" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    window.show().ok();
+                    window.set_focus().ok();
                 }
-                "hide" => {
-                    if let Some(window) = app.get_webview_window("main") {
-                        window.hide().ok();
-                    }
-                }
-                "settings" => {
-                    if let Some(window) = app.get_webview_window("settings") {
-                        window.show().ok();
-                        window.set_focus().ok();
-                    } else {
-                        let _ = tauri::WebviewWindowBuilder::new(
-                            app,
-                            "settings",
-                            tauri::WebviewUrl::App("index.html#/settings".into()),
-                        )
-                        .title("设置")
-                        .inner_size(560.0, 480.0)
-                        .build();
-                    }
-                }
-                "quit" => {
-                    app.exit(0);
-                }
-                _ => {}
             }
+            "hide" => {
+                if let Some(window) = app.get_webview_window("main") {
+                    window.hide().ok();
+                }
+            }
+            "settings" => open_or_focus_settings(app),
+            "quit" => {
+                app.exit(0);
+            }
+            _ => {}
         })
         .on_tray_icon_event(|tray, event| {
             if let TrayIconEvent::Click {
