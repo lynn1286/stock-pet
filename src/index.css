@@ -38,6 +38,29 @@ html:has(.s-app-mock-panel) #root {
 
 /* ---- 涨跌动画 ---- */
 
+/* 涨停 - 狂喜跳跃 */
+@keyframes euphoria {
+  0%,
+  100% {
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+  15% {
+    transform: translateY(-7px) scale(1.06) rotate(-4deg);
+  }
+  30% {
+    transform: translateY(-2px) scale(1.02) rotate(3deg);
+  }
+  45% {
+    transform: translateY(-8px) scale(1.07) rotate(-3deg);
+  }
+  60% {
+    transform: translateY(-2px) scale(1.02) rotate(2deg);
+  }
+  80% {
+    transform: translateY(-5px) scale(1.04) rotate(0deg);
+  }
+}
+
 /* 大涨 - 欢快弹跳 */
 @keyframes big-up {
   0%,
@@ -218,6 +241,9 @@ html:has(.s-app-mock-panel) #root {
   }
 }
 
+.anim-euphoria {
+  animation: euphoria 0.7s cubic-bezier(0.33, 1.15, 0.68, 1) infinite;
+}
 .anim-big-up {
   animation: big-up 0.8s cubic-bezier(0.33, 1.15, 0.68, 1) infinite;
 }
@@ -267,8 +293,8 @@ html:has(.s-app-mock-panel) #root {
 
 .pet-avatar svg,
 .pet-avatar img {
-  width: 44px;
-  height: 44px;
+  width: auto;
+  height: 72px;
   display: block;
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.2));
 }
@@ -287,6 +313,7 @@ html:has(.s-app-mock-panel) #root {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .anim-euphoria,
   .anim-big-up,
   .anim-small-up,
   .anim-flat,
@@ -319,9 +346,9 @@ html:has(.s-app-mock-panel) #root {
   --border: #e8e8e8;
   --ink: #1a1a1a;
   --ink2: #555555;
-  --ink3: #999999;
-  --accent: #d4940a;
-  --accent-h: #c08609;
+  --ink3: #737373;
+  --accent: #9a6a00;
+  --accent-h: #845a00;
   --green: #16a34a;
   --red: #dc2626;
 
@@ -461,7 +488,7 @@ html:has(.s-app-mock-panel) #root {
   font-size: 20px;
   font-weight: 600;
   color: var(--ink);
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
   letter-spacing: -0.02em;
 }
 
@@ -487,23 +514,23 @@ html:has(.s-app-mock-panel) #root {
 .s-metric-value {
   font-size: 13px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
 }
 
 .s-metric-pct {
   font-size: 11px;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
   padding: 1px 5px;
   border-radius: 3px;
 }
 
 .s-metric-pct.s-profit-up {
-  background: rgba(239, 68, 68, 0.1);
+  background: color-mix(in srgb, var(--up) 10%, transparent);
   color: var(--up);
 }
 
 .s-metric-pct.s-profit-down {
-  background: rgba(34, 197, 94, 0.1);
+  background: color-mix(in srgb, var(--down) 10%, transparent);
   color: var(--down);
 }
 
@@ -630,7 +657,7 @@ html:has(.s-app-mock-panel) #root {
   margin-left: auto;
   font-size: 12px;
   font-weight: 600;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
 }
 
 .s-mock-pct-up {
@@ -689,7 +716,7 @@ html:has(.s-app-mock-panel) #root {
 
 .s-mock-preset.on {
   border-color: var(--accent);
-  background: rgba(212, 148, 10, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
   color: var(--ink);
   font-weight: 500;
 }
@@ -778,7 +805,7 @@ html:has(.s-app-mock-panel) #root {
   appearance: none;
   -webkit-appearance: none;
   transition: border-color 0.15s;
-  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23737373' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
 }
@@ -884,7 +911,7 @@ html:has(.s-app-mock-panel) #root {
 
 @keyframes s-flash-up {
   0% {
-    background: rgba(239, 68, 68, 0.2);
+    background: color-mix(in srgb, var(--up) 20%, transparent);
   }
   100% {
     background: transparent;
@@ -893,10 +920,18 @@ html:has(.s-app-mock-panel) #root {
 
 @keyframes s-flash-down {
   0% {
-    background: rgba(34, 197, 94, 0.2);
+    background: color-mix(in srgb, var(--down) 20%, transparent);
   }
   100% {
     background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-table .s-tr-highlight,
+  .s-table .s-tr-flash-up,
+  .s-table .s-tr-flash-down {
+    animation: none;
   }
 }
 
@@ -907,6 +942,47 @@ html:has(.s-app-mock-panel) #root {
 .s-table .s-th-num {
   width: 80px;
   text-align: right;
+}
+.s-table .s-th-action {
+  width: 36px;
+}
+
+.s-td-action {
+  text-align: center;
+  padding: 0 6px;
+}
+
+.s-row-delete {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink3);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.12s,
+    color 0.12s,
+    background 0.12s;
+}
+
+.s-row-delete svg {
+  width: 14px;
+  height: 14px;
+}
+
+.s-table tbody tr:hover .s-row-delete,
+.s-table tbody tr:focus-within .s-row-delete {
+  opacity: 1;
+}
+
+.s-row-delete:hover {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 10%, transparent);
 }
 
 .s-td-name {
@@ -942,7 +1018,7 @@ html:has(.s-app-mock-panel) #root {
 
 .s-td-num {
   text-align: right;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
   font-size: 12px;
   color: var(--ink2);
 }
@@ -951,7 +1027,12 @@ html:has(.s-app-mock-panel) #root {
 .s-editable {
   cursor: pointer;
   padding: 2px 4px;
+  border: none;
   border-radius: 3px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: right;
   transition: background 0.1s;
 }
 
@@ -969,7 +1050,7 @@ html:has(.s-app-mock-panel) #root {
   padding: 2px 4px;
   border: 1px solid var(--accent);
   border-radius: 3px;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
   font-size: 12px;
   color: var(--ink);
   background: var(--bg);
@@ -1045,23 +1126,6 @@ html:has(.s-app-mock-panel) #root {
   background: #fffbeb;
   border-radius: 3px;
   padding: 1px 3px;
-}
-
-/* ---- Overlay (settings dialog) ---- */
-
-.s-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.s-overlay .s-dialog {
-  position: static;
-  margin: 0;
 }
 
 /* ---- Dialog ---- */
@@ -1162,7 +1226,7 @@ html:has(.s-app-mock-panel) #root {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--bg);
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
   font-size: 12px;
   color: var(--ink);
   outline: none;
@@ -1272,10 +1336,16 @@ html:has(.s-app-mock-panel) #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 8px 10px;
   cursor: pointer;
   transition: background 0.1s;
+  border: none;
   border-bottom: 1px solid #f5f5f5;
+  background: var(--bg);
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
 
 .s-dropdown-item:last-child {
@@ -1292,7 +1362,7 @@ html:has(.s-app-mock-panel) #root {
 }
 
 .s-dropdown-code {
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
   font-size: 11px;
   color: var(--ink3);
 }

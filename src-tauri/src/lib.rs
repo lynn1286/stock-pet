@@ -593,7 +593,7 @@ fn position_window_bottom_right(window: &tauri::WebviewWindow, margin: i32) -> t
     if let Ok(Some(monitor)) = window.primary_monitor() {
         let screen_size = monitor.size();
         let screen_pos = monitor.position();
-        let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(80, 80));
+        let window_size = window.outer_size().unwrap_or(tauri::PhysicalSize::new(100, 100));
         let x = screen_pos.x + (screen_size.width as i32) - (window_size.width as i32) - margin;
         let y = screen_pos.y + (screen_size.height as i32) - (window_size.height as i32) - margin;
         window.set_position(tauri::PhysicalPosition::new(x, y))?;

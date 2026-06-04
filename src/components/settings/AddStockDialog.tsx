@@ -110,22 +110,22 @@ export function AddStockDialog({
               onChange={(e) => onSearchInput(e.target.value)}
             />
             {showDropdown && searchResults.length > 0 && (
-              <div className="s-dropdown">
+              <div className="s-dropdown" role="listbox" aria-label="搜索结果">
                 {searchResults.map((r) => (
-                  <div
+                  <button
                     key={r.secid}
+                    type="button"
+                    role="option"
+                    aria-selected={false}
                     className="s-dropdown-item"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      onSelectResult(r);
-                    }}
+                    onClick={() => onSelectResult(r)}
                   >
                     <span className="s-dropdown-name">{r.name}</span>
                     <span className="s-dropdown-code">{r.code}</span>
                     <span className={`s-dropdown-tag s-tag-${r.asset_type}`}>
                       {r.asset_type === 'fund' ? '基金' : r.asset_type === 'etf' ? 'ETF' : '股票'}
                     </span>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

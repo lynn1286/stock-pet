@@ -240,12 +240,13 @@ export function SettingsPage() {
             <th className="s-th-num">现价</th>
             <th className="s-th-num">当日收益</th>
             <th className="s-th-num">盈亏</th>
+            <th className="s-th-action" aria-label="操作"></th>
           </tr>
         </thead>
         {config.stocks.length === 0 ? (
           <tbody>
             <tr>
-              <td colSpan={6}>
+              <td colSpan={7}>
                 <EmptyState onAdd={() => setShowAddDialog(true)} />
               </td>
             </tr>
@@ -268,6 +269,7 @@ export function SettingsPage() {
                 onEditKey={handleEditKeyDown}
                 onEditValueChange={setEditValue}
                 onContextMenu={handleContextMenu}
+                onDelete={handleDelete}
               />
             ))}
           </tbody>

@@ -25,13 +25,37 @@ function spriteIndexFromPct(pct: number): number {
 }
 
 function animFromPct(pct: number): string {
-  if (Math.abs(pct) >= 9) return 'anim-wild';
+  if (pct >= 9) return 'anim-euphoria';
   if (pct >= 3) return 'anim-big-up';
   if (pct >= 1) return 'anim-small-up';
   if (pct > -1) return 'anim-flat';
   if (pct > -3) return 'anim-small-down';
   if (pct > -5) return 'anim-big-down';
-  return 'anim-crash';
+  if (pct > -9) return 'anim-crash';
+  return 'anim-wild';
+}
+
+// 情绪分档边界（与 sprite / 动画共用）。在边界附近加滞回，
+// 避免涨跌幅在阈值上下抖动时，桌宠情绪反复横跳。
+const EMO_BOUNDS = [-9, -5, -3, -1, 1, 3, 9];
+const EMO_MARGIN = 0.15;
+
+function emoBand(v: number): number {
+  let b = 0;
+  for (const t of EMO_BOUNDS) if (v >= t) b++;
+  return b;
+}
+
+function stabilizePct(raw: number, prev: number): number {
+  const rawBand = emoBand(raw);
+  const prevBand = emoBand(prev);
+  if (rawBand === prevBand) return raw;
+  if (rawBand > prevBand) {
+    const boundary = EMO_BOUNDS[prevBand];
+    return raw >= boundary + EMO_MARGIN ? raw : prev;
+  }
+  const boundary = EMO_BOUNDS[rawBand];
+  return raw <= boundary - EMO_MARGIN ? raw : prev;
 }
 
 interface Particle {
@@ -111,7 +135,7 @@ function DogSprite({ tradeStatus, changePct }: { tradeStatus: TradeStatus; chang
       src={SPRITES[index]}
       alt={altTextFor(tradeStatus, changePct)}
       draggable={false}
-      style={{ width: '100%', height: '100%', display: 'block', pointerEvents: 'none' }}
+      style={{ display: 'block', pointerEvents: 'none' }}
     />
   );
 }
@@ -129,18 +153,24 @@ export default function PetView({
   className = 'pet-shell',
   onPointerDown,
 }: PetViewProps) {
+  const [pct, setPct] = useState(changePct);
+
+  useEffect(() => {
+    setPct((prev) => stabilizePct(changePct, prev));
+  }, [changePct]);
+
   const currentAnim =
     tradeStatus === 'sleep'
       ? 'anim-sleep'
       : tradeStatus === 'rest'
         ? 'anim-idle'
-        : animFromPct(changePct);
+        : animFromPct(pct);
 
   return (
     <div className={className} onPointerDown={onPointerDown}>
-      <Particles pct={changePct} />
+      <Particles pct={pct} />
       <div className={`pet-avatar ${currentAnim}`}>
-        <DogSprite tradeStatus={tradeStatus} changePct={changePct} />
+        <DogSprite tradeStatus={tradeStatus} changePct={pct} />
       </div>
     </div>
   );

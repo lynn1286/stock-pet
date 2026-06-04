@@ -30,6 +30,7 @@ interface StockRowProps {
   onEditKey: (e: React.KeyboardEvent) => void;
   onEditValueChange: (value: string) => void;
   onContextMenu: (e: React.MouseEvent, secid: string) => void;
+  onDelete: (secid: string) => void;
 }
 
 function fmtNum(n: number, decimals = 2): string {
@@ -60,6 +61,7 @@ export function StockRow({
   onEditKey,
   onEditValueChange,
   onContextMenu,
+  onDelete,
 }: StockRowProps) {
   const currentPrice = live?.price || 0;
   const profit =
@@ -112,13 +114,15 @@ export function StockRow({
             />
           </span>
         ) : (
-          <span
+          <button
+            type="button"
             className={`s-editable ${stock.quantity === 0 ? 's-editable-empty' : ''}`}
             onClick={() => onStartEdit(stock.secid, 'quantity', stock.quantity)}
-            title="点击编辑"
+            title="编辑份额"
+            aria-label={`编辑份额，当前 ${stock.quantity > 0 ? fmtNum(stock.quantity, 2) : '未填写'}`}
           >
             {stock.quantity > 0 ? fmtNum(stock.quantity, 2) : '点击填写'}
-          </span>
+          </button>
         )}
       </td>
 
@@ -139,13 +143,15 @@ export function StockRow({
             />
           </span>
         ) : (
-          <span
+          <button
+            type="button"
             className={`s-editable ${stock.cost_price === 0 ? 's-editable-empty' : ''}`}
             onClick={() => onStartEdit(stock.secid, 'cost_price', stock.cost_price)}
-            title="点击编辑"
+            title="编辑成本价"
+            aria-label={`编辑成本价，当前 ${stock.cost_price > 0 ? fmtNum(stock.cost_price, 4) : '未填写'}`}
           >
             {stock.cost_price > 0 ? fmtNum(stock.cost_price, 4) : '点击填写'}
-          </span>
+          </button>
         )}
       </td>
 
@@ -183,6 +189,29 @@ export function StockRow({
         ) : (
           '-'
         )}
+      </td>
+
+      <td className="s-td-action">
+        <button
+          type="button"
+          className="s-row-delete"
+          onClick={() => onDelete(stock.secid)}
+          aria-label={`删除 ${stock.name}`}
+          title="删除"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+        </button>
       </td>
     </tr>
   );
