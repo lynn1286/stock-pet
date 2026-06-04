@@ -44,9 +44,9 @@
 
 | 系统 | 芯片 | 下载文件 |
 | ---- | ---- | -------- |
-| macOS | Apple Silicon（M 系列） | `StockPet_{version}_aarch64.dmg` |
-| macOS | Intel | `StockPet_{version}_x64.dmg` |
-| Windows | x64 | `StockPet_{version}_x64-setup.exe` |
+| macOS | Apple Silicon（M 系列） | `会盯盘的桌宠_{version}_aarch64.dmg` |
+| macOS | Intel | `会盯盘的桌宠_{version}_x64.dmg` |
+| Windows | x64 | `会盯盘的桌宠_{version}_x64-setup.exe` |
 
 不确定 Mac 芯片类型：菜单栏 → 关于本机 → 芯片，显示 Apple 为 Apple Silicon，显示 Intel 为 Intel 版。
 
@@ -55,7 +55,7 @@
 下载 `.dmg`，拖入「应用程序」文件夹。首次打开若提示无法验证开发者，在 **系统设置 → 隐私与安全性** 中点「仍要打开」。若提示应用已损坏：
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/StockPet.app
+xattr -dr com.apple.quarantine "/Applications/会盯盘的桌宠.app"
 ```
 
 ### Windows

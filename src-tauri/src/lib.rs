@@ -623,7 +623,7 @@ fn create_mock_panel(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
         "mock-panel",
         tauri::WebviewUrl::App("index.html#/mock-settings".into()),
     )
-    .title("StockPet Mock")
+    .title("会盯盘的桌宠 Mock")
     .inner_size(320.0, 300.0)
     .resizable(false)
     .decorations(false)
