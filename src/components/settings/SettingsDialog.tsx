@@ -38,6 +38,10 @@ export function SettingsDialog({
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
+      // showModal 会默认聚焦第一个可聚焦控件（关闭按钮），此处不保留初始焦点
+      requestAnimationFrame(() => {
+        (document.activeElement as HTMLElement | null)?.blur();
+      });
     } else if (!open && dialog.open) {
       dialog.close();
     }
