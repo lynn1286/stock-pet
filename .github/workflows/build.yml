@@ -99,8 +99,10 @@ jobs:
           name: release-${{ matrix.id }}
           path: |
             ${{ matrix.bundle_root }}/dmg/*.dmg
-            ${{ matrix.bundle_root }}/macos/*
-            ${{ matrix.bundle_root }}/nsis/*
+            ${{ matrix.bundle_root }}/macos/*.app.tar.gz
+            ${{ matrix.bundle_root }}/macos/*.app.tar.gz.sig
+            ${{ matrix.bundle_root }}/nsis/*.exe
+            ${{ matrix.bundle_root }}/nsis/*.exe.sig
 
   release:
     needs: build
