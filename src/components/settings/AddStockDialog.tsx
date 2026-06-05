@@ -57,6 +57,7 @@ export function AddStockDialog({
   onClose,
 }: AddStockDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const firstSearchRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<AddRow[]>([emptyRow()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -70,6 +71,9 @@ export function AddStockDialog({
       setRows([emptyRow()]);
       setError('');
       setSubmitting(false);
+      requestAnimationFrame(() => {
+        firstSearchRef.current?.focus();
+      });
     } else if (!open && dialog.open) {
       dialog.close();
     }
@@ -285,6 +289,7 @@ export function AddStockDialog({
                 <span className="s-batch-row-index">{index + 1}</span>
                 <div className="s-dialog-search-wrap s-batch-search">
                   <input
+                    ref={index === 0 ? firstSearchRef : undefined}
                     type="text"
                     className="s-dialog-input"
                     placeholder="搜索代码或名称"
