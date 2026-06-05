@@ -1,6 +1,7 @@
 import { useRef, useLayoutEffect, useState } from 'react';
 import { MockToggle } from '../../mock/MockToggle';
 import { onDialogMouseDown } from '../../lib/dialogClick';
+import { useUpdater } from '../../context/UpdaterContext';
 
 type DisplayMode = 'primary' | 'summary';
 type TrayDisplay = 'amount' | 'pct';
@@ -43,6 +44,7 @@ export function SettingsDialog({
   onClose,
 }: SettingsDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const updater = useUpdater();
   const [vBaseUrl, setVBaseUrl] = useState(visionConfig.base_url);
   const [vApiKey, setVApiKey] = useState(visionConfig.api_key);
   const [vModel, setVModel] = useState(visionConfig.model);
@@ -222,6 +224,48 @@ export function SettingsDialog({
             config.json。
           </p>
         </div>
+
+        {updater.enabled && (
+          <>
+            <div className="s-setting-divider" />
+            <div className="s-setting-group">
+              <span className="s-setting-label">应用更新</span>
+              <div className="s-setting-row">
+                <span className="s-setting-row-label">当前版本</span>
+                <span className="s-update-version">
+                  {updater.currentVersion ? `v${updater.currentVersion}` : '…'}
+                </span>
+              </div>
+              {updater.phase === 'uptodate' && (
+                <p className="s-setting-tip">已是最新版本</p>
+              )}
+              {updater.phase === 'error' && (
+                <p className="s-setting-tip s-update-tip--error">{updater.error}</p>
+              )}
+              <div className="s-setting-row s-update-actions">
+                <button
+                  type="button"
+                  className={`s-dialog-submit${updater.phase === 'available' ? ' s-update-btn--pulse' : ''}`}
+                  disabled={updater.phase === 'checking' || updater.phase === 'downloading'}
+                  onClick={() =>
+                    void (updater.phase === 'available'
+                      ? updater.downloadAndInstall()
+                      : updater.checkForUpdate())
+                  }
+                >
+                  {updater.phase === 'checking' && '检查中…'}
+                  {updater.phase === 'downloading' && `下载中… ${updater.progress}%`}
+                  {updater.phase === 'available' && `更新 v${updater.availableVersion}`}
+                  {updater.phase !== 'checking' &&
+                    updater.phase !== 'downloading' &&
+                    updater.phase !== 'available' &&
+                    '检查更新'}
+                </button>
+              </div>
+              <p className="s-setting-tip">启动时自动检查更新；点击更新后应用将重启。</p>
+            </div>
+          </>
+        )}
 
         <MockToggle />
       </div>

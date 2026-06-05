@@ -189,8 +189,9 @@ fn normalize_asset_type(stock: &mut StockConfig) -> bool {
         return false;
     }
     let upper = stock.name.to_uppercase();
-    let looks_listed_fund = (upper.contains("ETF") && !upper.contains("联接") && !upper.contains("連接"))
-        || upper.contains("LOF");
+    let looks_listed_fund =
+        (upper.contains("ETF") && !upper.contains("联接") && !upper.contains("连接"))
+            || upper.contains("LOF");
     if looks_listed_fund {
         stock.asset_type = AssetType::ListedFund;
     }
@@ -313,10 +314,7 @@ fn normalize_fund_code(secid: &str) -> String {
 }
 
 fn parse_jsonpgz_payload(text: &str) -> Result<&str, String> {
-    let inner = text
-        .trim()
-        .strip_prefix("jsonpgz(")
-        .ok_or("解析格式错误")?;
+    let inner = text.trim().strip_prefix("jsonpgz(").ok_or("解析格式错误")?;
     let inner = inner
         .strip_suffix(");")
         .or_else(|| inner.strip_suffix(')'))
@@ -816,7 +814,11 @@ async fn recognize_one(
         let truncated = name.contains('…') || name.contains("...");
         let normalized_name = {
             let n = str_field("normalized_name");
-            if n.is_empty() { name.clone() } else { n }
+            if n.is_empty() {
+                name.clone()
+            } else {
+                n
+            }
         };
         let guess_code = str_field("guess_code");
         let guess_asset_type = item
@@ -1647,6 +1649,8 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_log::Builder::default().build())
         .manage(AppState {
             config: Mutex::new(load_config()),

@@ -29,8 +29,20 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUzMEYwMEFCMjI1MTIwMwpSV1FERWlXeUN2QXdEanlhSi85ZWxrUUFPYk90U0NvbWZ4UUsweTY1akU4RUt4Q09rWnhVT3k2bAo=",
+      "endpoints": [
+        "https://github.com/lynn1286/stock-pet/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["dmg", "nsis"],
     "icon": [
       "icons/32x32.png",
