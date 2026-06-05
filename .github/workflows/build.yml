@@ -81,23 +81,65 @@ jobs:
           args: ${{ env.BUILD_ARGS }}
           tauriScript: pnpm tauri
 
-      - name: Rename macOS updater bundles
-        if: matrix.platform == 'macos-latest'
+      - name: Normalize updater artifacts
         shell: bash
         run: |
-          MACOS_DIR="${{ matrix.bundle_root }}/macos"
-          if [ ! -d "$MACOS_DIR" ]; then
+          set -euo pipefail
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            MACOS_DIR="${{ matrix.bundle_root }}/macos"
+            if [ ! -d "$MACOS_DIR" ]; then
+              echo "No macOS bundle directory"
+              exit 0
+            fi
+            cd "$MACOS_DIR"
+            archive="$(find . -maxdepth 1 -name '*.app.tar.gz' -print -quit)"
+            if [ -z "$archive" ]; then
+              echo "No updater archive found"
+              exit 0
+            fi
+            archive="${archive#./}"
+            target="${{ matrix.id }}-update.app.tar.gz"
+            mv "$archive" "$target"
+            if [ -f "${archive}.sig" ]; then
+              mv "${archive}.sig" "${target}.sig"
+            fi
+            ls -la
+          else
+            NSIS_DIR="${{ matrix.bundle_root }}/nsis"
+            if [ ! -d "$NSIS_DIR" ]; then
+              echo "No NSIS bundle directory"
+              exit 0
+            fi
+            cd "$NSIS_DIR"
+            installer="$(find . -maxdepth 1 -name '*-setup.exe' -print -quit)"
+            if [ -z "$installer" ]; then
+              echo "No Windows installer found"
+              exit 0
+            fi
+            installer="${installer#./}"
+            target="windows-x86_64-setup.exe"
+            mv "$installer" "$target"
+            if [ -f "${installer}.sig" ]; then
+              mv "${installer}.sig" "${target}.sig"
+            fi
+            ls -la
+          fi
+
+      - name: Verify updater signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" ]; then
+            echo "Signing disabled, skip updater verification"
             exit 0
           fi
-          cd "$MACOS_DIR"
-          for archive in *.app.tar.gz; do
-            [ -f "$archive" ] || continue
-            prefix="${{ matrix.id }}-${archive}"
-            mv "$archive" "$prefix"
-            if [ -f "${archive}.sig" ]; then
-              mv "${archive}.sig" "${prefix}.sig"
-            fi
-          done
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            test -f "${{ matrix.bundle_root }}/macos/${{ matrix.id }}-update.app.tar.gz"
+            test -f "${{ matrix.bundle_root }}/macos/${{ matrix.id }}-update.app.tar.gz.sig"
+          else
+            test -f "${{ matrix.bundle_root }}/nsis/windows-x86_64-setup.exe"
+            test -f "${{ matrix.bundle_root }}/nsis/windows-x86_64-setup.exe.sig"
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -125,7 +167,10 @@ jobs:
           merge-multiple: true
 
       - name: Generate latest.json
-        run: python3 .github/scripts/generate-latest-json.py
+        run: |
+          python3 .github/scripts/generate-latest-json.py
+          test -f bundles/latest.json
+          cat bundles/latest.json
 
       - name: Read app version
         id: version

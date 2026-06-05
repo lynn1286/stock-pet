@@ -14,23 +14,41 @@ ROOT = Path(__file__).resolve().parents[2]
 BUNDLES = ROOT / "bundles"
 CONF = ROOT / "src-tauri" / "tauri.conf.json"
 
+PLATFORM_FILES = {
+    "darwin-aarch64": "aarch64-apple-darwin-update.app.tar.gz",
+    "darwin-x86_64": "x86_64-apple-darwin-update.app.tar.gz",
+    "windows-x86_64": "windows-x86_64-setup.exe",
+}
+
 
 def release_url(repo: str, tag: str, filename: str) -> str:
     return f"https://github.com/{repo}/releases/download/{tag}/{quote(filename)}"
 
 
+def find_file(filename: str) -> Path | None:
+    for path in BUNDLES.rglob(filename):
+        if path.is_file():
+            return path
+    return None
+
+
 def add_platform(
     platforms: dict,
     key: str,
-    archive: Path,
+    archive_name: str,
     repo: str,
     tag: str,
 ) -> None:
+    archive = find_file(archive_name)
+    if archive is None:
+        print(f"skip {key}: missing {archive_name}")
+        return
     sig = Path(f"{archive}.sig")
     if not sig.is_file():
+        print(f"skip {key}: missing {archive_name}.sig")
         return
     platforms[key] = {
-        "url": release_url(repo, tag, archive.name),
+        "url": release_url(repo, tag, archive_name),
         "signature": sig.read_text(encoding="utf-8").strip(),
     }
 
@@ -42,24 +60,12 @@ def main() -> int:
     repo = os.environ.get("GITHUB_REPOSITORY", "lynn1286/stock-pet")
 
     platforms: dict[str, dict[str, str]] = {}
-
-    for archive in BUNDLES.rglob("aarch64-apple-darwin-*.app.tar.gz"):
-        add_platform(platforms, "darwin-aarch64", archive, repo, tag)
-        break
-
-    for archive in BUNDLES.rglob("x86_64-apple-darwin-*.app.tar.gz"):
-        add_platform(platforms, "darwin-x86_64", archive, repo, tag)
-        break
-
-    for archive in BUNDLES.rglob("*-setup.exe"):
-        if archive.name.endswith(".sig"):
-            continue
-        add_platform(platforms, "windows-x86_64", archive, repo, tag)
-        break
+    for key, filename in PLATFORM_FILES.items():
+        add_platform(platforms, key, filename, repo, tag)
 
     if not platforms:
-        print("No updater signatures found, skip latest.json")
-        return 0
+        print("No updater signatures found, skip latest.json", file=sys.stderr)
+        return 1
 
     payload = {
         "version": version,
