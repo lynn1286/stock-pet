@@ -1,6 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
 import { useStockConfig } from '../hooks/useStockConfig';
-import { useStockSearch } from '../hooks/useStockSearch';
 import { useFlashEffect } from '../hooks/useFlashEffect';
 import { StockRow } from './settings/StockRow';
 import { EmptyState } from './settings/EmptyState';
@@ -23,7 +22,6 @@ export function SettingsPage() {
     loadConfig,
     refreshLivePrices,
     fetchPrice,
-    addStock,
     removeStock,
     undoDelete,
     updateStock,
@@ -33,26 +31,9 @@ export function SettingsPage() {
     setVisionConfig,
   } = useStockConfig();
 
-  const {
-    searchQuery,
-    searchResults,
-    showDropdown,
-    newAssetType,
-    handleSearchInput,
-    selectSearchResult,
-    closeDropdown,
-    resetSearch,
-  } = useStockSearch();
-
   const flashMap = useFlashEffect(liveStocks);
 
-  const [newSecid, setNewSecid] = useState('');
-  const [newName, setNewName] = useState('');
-  const [newAmount, setNewAmount] = useState('');
-  const [newReturn, setNewReturn] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [dialogError, setDialogError] = useState('');
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [newlyAdded, setNewlyAdded] = useState<string | null>(null);
@@ -72,10 +53,25 @@ export function SettingsPage() {
   const primaryStock = useMemo(() => config?.stocks.find((s) => s.is_primary), [config]);
   const existingSecids = useMemo(() => new Set(config?.stocks.map((s) => s.secid) ?? []), [config]);
 
-  async function handleImported(summary: { added: number; skipped: number; failed: number }) {
+  async function handleImported(
+    summary: {
+      added: number;
+      updated: number;
+      skipped: number;
+      failed: number;
+    },
+    highlightSecid?: string,
+  ) {
     await loadConfig();
     await refreshLivePrices();
-    const parts = [`导入 ${summary.added} 条`];
+    if (highlightSecid) {
+      setNewlyAdded(highlightSecid);
+      setTimeout(() => setNewlyAdded(null), 1000);
+    }
+    const parts: string[] = [];
+    if (summary.added > 0) parts.push(`新增 ${summary.added} 条`);
+    if (summary.updated > 0) parts.push(`更新 ${summary.updated} 条`);
+    if (parts.length === 0) parts.push('未添加任何持仓');
     if (summary.skipped > 0) parts.push(`跳过 ${summary.skipped} 条`);
     if (summary.failed > 0) parts.push(`失败 ${summary.failed} 条`);
     if (summary.failed > 0) {
@@ -83,12 +79,6 @@ export function SettingsPage() {
     } else {
       setSuccess(parts.join('，'));
     }
-  }
-
-  function handleSelectSearchResult(result: Parameters<typeof selectSearchResult>[0]) {
-    const { secid, name } = selectSearchResult(result);
-    setNewSecid(secid);
-    setNewName(name);
   }
 
   const editingStock = useMemo(
@@ -142,66 +132,6 @@ export function SettingsPage() {
     if (stock) {
       removeStock(stock);
     }
-  }
-
-  async function handleAdd() {
-    if (submitting) return;
-    if (!newSecid || !newName) {
-      setDialogError('请从搜索结果中选择一只股票');
-      return;
-    }
-    const amount = parseFloat(newAmount) || 0;
-    if (amount <= 0) {
-      setDialogError('请输入持有金额');
-      return;
-    }
-    const ret = parseFloat(newReturn) || 0;
-    if (ret >= amount) {
-      setDialogError('持有收益不能大于等于持有金额');
-      return;
-    }
-    setSubmitting(true);
-    setDialogError('');
-    try {
-      closeDropdown();
-      let currentPrice = liveStocks.get(newSecid)?.price || 0;
-      if (currentPrice <= 0) {
-        try {
-          currentPrice = await fetchPrice(newSecid, newAssetType);
-        } catch {
-          setDialogError('获取价格失败，请稍后重试');
-          setSubmitting(false);
-          return;
-        }
-      }
-      const totalCost = amount - ret;
-      const qty = amount / currentPrice;
-      const cost = totalCost / qty;
-      const addedSecid = newSecid;
-      await addStock(newSecid, newName, qty, cost, newAssetType);
-      setNewlyAdded(addedSecid);
-      setTimeout(() => setNewlyAdded(null), 1000);
-      setNewSecid('');
-      setNewName('');
-      setNewAmount('');
-      setNewReturn('');
-      resetSearch();
-      setShowAddDialog(false);
-    } catch (e) {
-      setDialogError(e instanceof Error ? e.message : '操作失败');
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function handleCloseDialog() {
-    setShowAddDialog(false);
-    resetSearch();
-    setNewSecid('');
-    setNewName('');
-    setNewAmount('');
-    setNewReturn('');
-    setDialogError('');
   }
 
   if (!config) {
@@ -385,28 +315,10 @@ export function SettingsPage() {
 
       <AddStockDialog
         open={showAddDialog}
-        searchQuery={searchQuery}
-        searchResults={searchResults}
-        showDropdown={showDropdown}
-        newName={newName}
-        newAmount={newAmount}
-        newReturn={newReturn}
-        submitting={submitting}
-        error={dialogError}
-        canSubmit={!!newSecid && !!newName && !!newAmount}
-        onSearchInput={(val) => {
-          handleSearchInput(val);
-          setNewSecid('');
-          setNewName('');
-          setNewAmount('');
-          setNewReturn('');
-          setDialogError('');
-        }}
-        onSelectResult={handleSelectSearchResult}
-        onAmountChange={setNewAmount}
-        onReturnChange={setNewReturn}
-        onSubmit={handleAdd}
-        onClose={handleCloseDialog}
+        livePrices={liveStocks}
+        fetchPrice={fetchPrice}
+        onImported={handleImported}
+        onClose={() => setShowAddDialog(false)}
       />
 
       <Toast

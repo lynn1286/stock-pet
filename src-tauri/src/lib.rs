@@ -304,33 +304,59 @@ async fn fetch_stock_price(secid: &str) -> Result<(f64, f64, String, String), St
     Ok((price, change_pct, name, symbol))
 }
 
-async fn fetch_fund_price(secid: &str) -> Result<(f64, f64, String, String), String> {
-    // secid 格式: "0.000001"，提取基金代码
-    let code = secid.split('.').last().unwrap_or(secid);
+fn normalize_fund_code(secid: &str) -> String {
+    let raw = secid.rsplit('.').next().unwrap_or(secid).trim();
+    if raw.chars().all(|c| c.is_ascii_digit()) && !raw.is_empty() {
+        return format!("{:0>6}", raw);
+    }
+    raw.to_string()
+}
+
+fn parse_jsonpgz_payload(text: &str) -> Result<&str, String> {
+    let inner = text
+        .trim()
+        .strip_prefix("jsonpgz(")
+        .ok_or("解析格式错误")?;
+    let inner = inner
+        .strip_suffix(");")
+        .or_else(|| inner.strip_suffix(')'))
+        .ok_or("解析格式错误")?;
+    Ok(inner.trim())
+}
+
+fn json_field_as_f64(value: Option<&serde_json::Value>) -> Option<f64> {
+    let v = value?;
+    if let Some(n) = v.as_f64() {
+        return Some(n);
+    }
+    v.as_str()?.parse::<f64>().ok()
+}
+
+async fn fetch_fund_price_gz(code: &str) -> Result<(f64, f64, String, String), String> {
     let url = format!("http://fundgz.1234567.com.cn/js/{}.js", code);
     let resp = reqwest::get(&url)
         .await
         .map_err(|e| format!("请求失败: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
     let text = resp.text().await.map_err(|e| format!("读取失败: {}", e))?;
+    if text.trim().is_empty() {
+        return Err("基金估值接口返回空内容".to_string());
+    }
 
     // 返回格式: jsonpgz({"fundcode":"000001","name":"...","gsz":"1.23","gszzl":"0.45",...});
-    let json_str = text
-        .strip_prefix("jsonpgz(")
-        .and_then(|s| s.strip_suffix(");"))
-        .ok_or("解析格式错误")?;
+    let json_str = parse_jsonpgz_payload(&text)?;
+    if json_str.is_empty() {
+        return Err("基金估值接口无数据".to_string());
+    }
     let data: serde_json::Value =
         serde_json::from_str(json_str).map_err(|e| format!("JSON解析失败: {}", e))?;
 
-    let price = data
-        .get("gsz")
-        .and_then(|v| v.as_str())
-        .and_then(|s| s.parse::<f64>().ok())
+    let price = json_field_as_f64(data.get("gsz"))
+        .or_else(|| json_field_as_f64(data.get("dwjz")))
         .unwrap_or(0.0);
-    let change_pct = data
-        .get("gszzl")
-        .and_then(|v| v.as_str())
-        .and_then(|s| s.parse::<f64>().ok())
-        .unwrap_or(0.0);
+    let change_pct = json_field_as_f64(data.get("gszzl")).unwrap_or(0.0);
     let name = data
         .get("name")
         .and_then(|v| v.as_str())
@@ -339,10 +365,59 @@ async fn fetch_fund_price(secid: &str) -> Result<(f64, f64, String, String), Str
     let symbol = data
         .get("fundcode")
         .and_then(|v| v.as_str())
-        .unwrap_or("")
+        .unwrap_or(code)
         .to_string();
 
     Ok((price, change_pct, name, symbol))
+}
+
+async fn fetch_fund_price_mobapi(code: &str) -> Result<(f64, f64, String, String), String> {
+    let url = format!(
+        "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNFInfo?pageIndex=1&pageSize=1&plat=Android&appType=ttjj&product=EFund&Version=1&deviceid=1&Fcodes={}",
+        code
+    );
+    let resp = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("备用接口请求失败: {}", e))?;
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("备用接口解析失败: {}", e))?;
+    let data = json
+        .get("Datas")
+        .and_then(|v| v.as_array())
+        .and_then(|items| items.first())
+        .ok_or("备用接口无基金数据")?;
+
+    let price = json_field_as_f64(data.get("GSZ"))
+        .or_else(|| json_field_as_f64(data.get("NAV")))
+        .unwrap_or(0.0);
+    let change_pct = json_field_as_f64(data.get("GSZZL"))
+        .or_else(|| json_field_as_f64(data.get("NAVCHGRT")))
+        .unwrap_or(0.0);
+    let name = data
+        .get("SHORTNAME")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let symbol = data
+        .get("FCODE")
+        .and_then(|v| v.as_str())
+        .unwrap_or(code)
+        .to_string();
+
+    Ok((price, change_pct, name, symbol))
+}
+
+async fn fetch_fund_price(secid: &str) -> Result<(f64, f64, String, String), String> {
+    let code = normalize_fund_code(secid);
+    match fetch_fund_price_gz(&code).await {
+        Ok(result) => Ok(result),
+        Err(err) => {
+            log::warn!("fundgz {} 失败: {}，尝试备用接口", code, err);
+            fetch_fund_price_mobapi(&code).await
+        }
+    }
 }
 
 fn build_stock_state(
@@ -994,6 +1069,22 @@ async fn fetch_single_price(secid: String, asset_type: AssetType) -> Result<f64,
     Ok(price)
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportStockItem {
+    pub secid: String,
+    pub name: String,
+    pub quantity: f64,
+    pub cost_price: f64,
+    pub asset_type: AssetType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportStocksSummary {
+    pub added: u32,
+    pub updated: u32,
+    pub skipped: u32,
+}
+
 #[tauri::command]
 fn add_stock(
     secid: String,
@@ -1018,6 +1109,55 @@ fn add_stock(
     });
     save_config(&config);
     Ok(())
+}
+
+#[tauri::command]
+async fn import_stocks(
+    items: Vec<ImportStockItem>,
+    state: tauri::State<'_, AppState>,
+    app: AppHandle,
+) -> Result<ImportStocksSummary, String> {
+    let mut added = 0u32;
+    let mut updated = 0u32;
+    let mut skipped = 0u32;
+
+    {
+        let mut config = state.config.lock().unwrap();
+        for item in items {
+            if item.secid.trim().is_empty()
+                || item.name.trim().is_empty()
+                || item.quantity <= 0.0
+                || item.cost_price <= 0.0
+            {
+                skipped += 1;
+                continue;
+            }
+            if let Some(stock) = config.stocks.iter_mut().find(|s| s.secid == item.secid) {
+                stock.quantity = item.quantity;
+                stock.cost_price = item.cost_price;
+                updated += 1;
+            } else {
+                let is_primary = config.stocks.is_empty();
+                config.stocks.push(StockConfig {
+                    secid: item.secid,
+                    name: item.name,
+                    is_primary,
+                    quantity: item.quantity,
+                    cost_price: item.cost_price,
+                    asset_type: item.asset_type,
+                });
+                added += 1;
+            }
+        }
+        save_config(&config);
+    }
+
+    refresh_and_emit(&app).await;
+    Ok(ImportStocksSummary {
+        added,
+        updated,
+        skipped,
+    })
 }
 
 #[tauri::command]
@@ -1521,6 +1661,7 @@ pub fn run() {
             lookup_stock_ai,
             fetch_single_price,
             add_stock,
+            import_stocks,
             update_stock,
             remove_stock,
             set_primary,

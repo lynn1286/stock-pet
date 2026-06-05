@@ -11,7 +11,12 @@ interface ImageImportDialogProps {
   existingSecids: Set<string>;
   fetchPrice: FetchPrice;
   onOpenSettings: () => void;
-  onImported: (summary: { added: number; skipped: number; failed: number }) => void;
+  onImported: (summary: {
+    added: number;
+    updated: number;
+    skipped: number;
+    failed: number;
+  }) => void;
   onClose: () => void;
 }
 

@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { importStocks } from './useImportStocks';
 import { userMessage } from '../utils/errmsg';
 
 import type { AssetType } from '../lib/assetType';
@@ -42,6 +43,7 @@ export type ImportStatus = 'idle' | 'recognizing' | 'preview' | 'importing';
 
 export interface ImportSummary {
   added: number;
+  updated: number;
   skipped: number;
   failed: number;
 }
@@ -52,17 +54,14 @@ export function useImageImport() {
   const [status, setStatus] = useState<ImportStatus>('idle');
   const [rows, setRows] = useState<PreviewRow[]>([]);
   const [error, setError] = useState('');
-  const existingRef = useRef<Set<string>>(new Set());
 
   const reset = useCallback(() => {
     setStatus('idle');
     setRows([]);
     setError('');
-    existingRef.current = new Set();
   }, []);
 
-  const recognize = useCallback(async (dataUrls: string[], existingSecids: Set<string>) => {
-    existingRef.current = existingSecids;
+  const recognize = useCallback(async (dataUrls: string[], _existingSecids: Set<string>) => {
     setError('');
     setStatus('recognizing');
     try {
@@ -146,9 +145,15 @@ export function useImageImport() {
   const importAll = useCallback(
     async (fetchPrice: FetchPrice): Promise<ImportSummary> => {
       setStatus('importing');
-      let added = 0;
       let skipped = 0;
       let failed = 0;
+      const items: {
+        secid: string;
+        name: string;
+        quantity: number;
+        costPrice: number;
+        assetType: AssetType;
+      }[] = [];
 
       for (const row of rows) {
         if (!row.matchedSecid || row.marketValue <= 0) {
@@ -159,11 +164,9 @@ export function useImageImport() {
           let qty: number;
           let cost: number;
           if (row.quantity > 0 && row.costPrice > 0) {
-            // 截图直接给出份额与成本价（东方财富交易页），精确采用
             qty = row.quantity;
             cost = row.costPrice;
           } else {
-            // 仅有市值与收益（支付宝基金页），按现价反推份额与成本
             const price = await fetchPrice(row.matchedSecid, row.assetType);
             if (!price || price <= 0) {
               failed++;
@@ -173,29 +176,37 @@ export function useImageImport() {
             qty = row.marketValue / price;
             cost = totalCost / qty;
           }
-          if (existingRef.current.has(row.matchedSecid)) {
-            await invoke('update_stock', {
-              secid: row.matchedSecid,
-              quantity: qty,
-              costPrice: cost,
-            });
-          } else {
-            await invoke('add_stock', {
-              secid: row.matchedSecid,
-              name: row.matchedName,
-              quantity: qty,
-              costPrice: cost,
-              assetType: row.assetType,
-            });
+          if (qty <= 0 || cost <= 0) {
+            skipped++;
+            continue;
           }
-          added++;
+          items.push({
+            secid: row.matchedSecid,
+            name: row.matchedName,
+            quantity: qty,
+            costPrice: cost,
+            assetType: row.assetType,
+          });
         } catch {
           failed++;
         }
       }
 
+      let added = 0;
+      let updated = 0;
+      if (items.length > 0) {
+        try {
+          const summary = await importStocks(items);
+          added = summary.added;
+          updated = summary.updated;
+          skipped += summary.skipped;
+        } catch {
+          failed += items.length;
+        }
+      }
+
       setStatus('preview');
-      return { added, skipped, failed };
+      return { added, updated, skipped, failed };
     },
     [rows],
   );

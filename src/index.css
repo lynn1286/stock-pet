@@ -2127,6 +2127,120 @@ html:has(.s-app) #root {
   color: var(--ink3);
 }
 
+/* ---- 批量添加 ---- */
+
+.s-dialog-wide[open] .s-dialog-body:has(.s-batch-scroll) {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.s-batch-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.s-batch-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink3);
+  line-height: 1.5;
+}
+
+.s-batch-add-row {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  font-size: 12px;
+  color: var(--ink2);
+  cursor: pointer;
+}
+
+.s-batch-add-row:hover {
+  background: var(--bg2);
+}
+
+.s-batch-add-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.s-batch-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.s-dialog.s-dialog-wide[open]:has(.s-batch-scroll) {
+  height: min(90vh, calc(100dvh - 32px));
+}
+
+.s-batch-row {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg2);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.s-batch-row-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.s-batch-row-index {
+  flex-shrink: 0;
+  width: 20px;
+  padding-top: 8px;
+  font-size: 12px;
+  color: var(--ink3);
+  text-align: center;
+}
+
+.s-batch-search {
+  flex: 1;
+  min-width: 0;
+}
+
+.s-batch-row-del {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink3);
+  cursor: pointer;
+}
+
+.s-batch-row-del:hover {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.s-batch-row-name {
+  font-size: 12px;
+  color: var(--ink2);
+  padding-left: 28px;
+}
+
+.s-batch-row-nums {
+  display: flex;
+  gap: 10px;
+  padding-left: 28px;
+}
+
 /* ---- 响应式 ---- */
 
 @media (max-width: 480px) {
