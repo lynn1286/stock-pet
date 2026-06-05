@@ -1386,6 +1386,28 @@ html:has(.s-app) #root {
   margin: auto;
 }
 
+.s-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  max-height: min(90vh, calc(100dvh - 32px));
+  overflow: hidden;
+}
+
+.s-dialog[open]:focus {
+  outline: none;
+}
+
+.s-dialog[open] .s-dialog-header,
+.s-dialog[open] .s-dialog-footer {
+  flex-shrink: 0;
+}
+
+.s-dialog[open] .s-dialog-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .s-dialog::backdrop {
   background: rgba(0, 0, 0, 0.4);
 }
@@ -1780,30 +1802,12 @@ html:has(.s-app) #root {
   width: 520px;
 }
 
-.s-dialog-wide[open] {
-  display: flex;
-  flex-direction: column;
-  max-height: min(90vh, calc(100dvh - 32px));
-  overflow: hidden;
-}
-
-.s-dialog-wide[open]:focus {
-  outline: none;
-}
-
-.s-dialog-wide[open] .s-dialog-header,
-.s-dialog-wide[open] .s-dialog-footer {
-  flex-shrink: 0;
-}
-
 /* 预览阶段：固定弹窗高度，中间列表滚动，避免 footer 被挤出视口 */
 .s-dialog.s-dialog-wide[open]:has(.s-import-preview) {
   height: min(90vh, calc(100dvh - 32px));
 }
 
 .s-dialog-wide[open] .s-dialog-body:has(.s-import-preview) {
-  flex: 1;
-  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
