@@ -17,7 +17,7 @@ CONF = ROOT / "src-tauri" / "tauri.conf.json"
 PLATFORM_FILES = {
     "darwin-aarch64": "aarch64-apple-darwin-update.app.tar.gz",
     "darwin-x86_64": "x86_64-apple-darwin-update.app.tar.gz",
-    "windows-x86_64": "windows-x86_64-setup.exe",
+    "windows-x86_64": "x86_64-pc-windows-msvc-update.exe",
 }
 
 

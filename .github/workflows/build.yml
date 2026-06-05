@@ -118,10 +118,11 @@ jobs:
               exit 0
             fi
             installer="${installer#./}"
-            target="windows-x86_64-setup.exe"
-            mv "$installer" "$target"
+            # 安装包保留 Tauri 中文名；更新包单独复制，命名规则与 macOS 一致
+            update="${{ matrix.id }}-update.exe"
+            cp "$installer" "$update"
             if [ -f "${installer}.sig" ]; then
-              mv "${installer}.sig" "${target}.sig"
+              cp "${installer}.sig" "${update}.sig"
             fi
             ls -la
           fi
@@ -135,8 +136,8 @@ jobs:
             test -f "${{ matrix.bundle_root }}/macos/${{ matrix.id }}-update.app.tar.gz"
             test -f "${{ matrix.bundle_root }}/macos/${{ matrix.id }}-update.app.tar.gz.sig"
           else
-            test -f "${{ matrix.bundle_root }}/nsis/windows-x86_64-setup.exe"
-            test -f "${{ matrix.bundle_root }}/nsis/windows-x86_64-setup.exe.sig"
+            test -f "${{ matrix.bundle_root }}/nsis/${{ matrix.id }}-update.exe"
+            test -f "${{ matrix.bundle_root }}/nsis/${{ matrix.id }}-update.exe.sig"
           fi
 
       - name: Upload artifacts
