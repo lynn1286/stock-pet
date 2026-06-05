@@ -55,13 +55,30 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare signing and build args
+        shell: bash
+        env:
+          SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          BUILD_ARGS="${{ matrix.args }}"
+          if [ -z "${SIGNING_KEY}" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY 未配置，跳过 updater 签名产物"
+            jq '.bundle.createUpdaterArtifacts = false' src-tauri/tauri.conf.json > src-tauri/tauri.ci.json
+            BUILD_ARGS="${BUILD_ARGS} --config src-tauri/tauri.ci.json"
+          else
+            KEY_FILE="${RUNNER_TEMP}/tauri-signing.key"
+            printf '%s' "${SIGNING_KEY}" > "${KEY_FILE}"
+            echo "TAURI_SIGNING_PRIVATE_KEY_PATH=${KEY_FILE}" >> "${GITHUB_ENV}"
+            # 当前密钥生成时未设密码，固定为空，避免误配 Secret 导致验签失败
+            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=" >> "${GITHUB_ENV}"
+          fi
+          echo "BUILD_ARGS=${BUILD_ARGS}" >> "${GITHUB_ENV}"
+
       - name: Build
         uses: tauri-apps/tauri-action@v0
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         with:
-          args: ${{ matrix.args }}
+          args: ${{ env.BUILD_ARGS }}
           tauriScript: pnpm tauri
 
       - name: Rename macOS updater bundles
@@ -86,6 +103,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.id }}
+          if-no-files-found: error
           path: |
             ${{ matrix.bundle_root }}/dmg/*.dmg
             ${{ matrix.bundle_root }}/macos/*.app.tar.gz
