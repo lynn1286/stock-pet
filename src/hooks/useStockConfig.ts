@@ -4,6 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { userMessage } from '../utils/errmsg';
 
 import type { AssetType } from '../lib/assetType';
+import type { PrivacyMode } from '../lib/privacyMode';
 type DisplayMode = 'primary' | 'summary';
 type TrayDisplay = 'amount' | 'pct';
 
@@ -35,6 +36,7 @@ interface AppConfig {
   stocks: StockConfig[];
   display_mode: DisplayMode;
   tray_display: TrayDisplay;
+  privacy_mode: PrivacyMode;
   vision: VisionConfig;
 }
 
@@ -63,7 +65,11 @@ export function useStockConfig() {
 
   const loadConfig = useCallback(async (): Promise<void> => {
     try {
-      setConfig(await fetchConfig());
+      const cfg = await fetchConfig();
+      setConfig({
+        ...cfg,
+        privacy_mode: cfg.privacy_mode ?? 'none',
+      });
     } catch (e) {
       setError(userMessage(e));
     }
@@ -244,6 +250,19 @@ export function useStockConfig() {
     [loadConfig],
   );
 
+  // 切换闭眼模式
+  const setPrivacyMode = useCallback(
+    async (mode: PrivacyMode) => {
+      try {
+        await invoke('set_privacy_mode', { mode });
+        await loadConfig();
+      } catch (e) {
+        setError(userMessage(e));
+      }
+    },
+    [loadConfig],
+  );
+
   // 保存图片识别（视觉模型）配置
   const setVisionConfig = useCallback(
     async (vision: VisionConfig) => {
@@ -275,6 +294,7 @@ export function useStockConfig() {
     setPrimary,
     setDisplayMode,
     setTrayDisplay,
+    setPrivacyMode,
     setVisionConfig,
   };
 }

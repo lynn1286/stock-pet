@@ -1,4 +1,12 @@
 import { assetTypeTagClass, assetTypeTagLabel, type AssetType } from '../../lib/assetType';
+import {
+  hideMarketValue,
+  hideProfitAmount,
+  hideProfitPct,
+  HIDDEN_AMOUNT,
+  HIDDEN_PCT,
+  type PrivacyMode,
+} from '../../lib/privacyMode';
 import { FlashValue } from './FlashValue';
 
 interface StockConfig {
@@ -24,6 +32,7 @@ interface StockRowProps {
   live: StockState | undefined;
   isHighlighted?: boolean;
   displayMode: 'primary' | 'summary';
+  privacyMode: PrivacyMode;
   flash?: 'up' | 'down';
   onEdit: (secid: string) => void;
   onDelete: (secid: string) => void;
@@ -48,6 +57,7 @@ export function StockRow({
   live,
   isHighlighted,
   displayMode,
+  privacyMode,
   flash,
   onEdit,
   onDelete,
@@ -88,7 +98,9 @@ export function StockRow({
                 <span className="s-td-name-dot" aria-hidden>
                   ·
                 </span>
-                <span className="s-td-name-hold">持有 {fmtNum(marketValue)} 元</span>
+                <span className="s-td-name-hold">
+                  持有 {hideMarketValue(privacyMode) ? HIDDEN_AMOUNT : fmtNum(marketValue)} 元
+                </span>
               </>
             )}
           </span>
@@ -130,10 +142,11 @@ export function StockRow({
       >
         {stock.quantity > 0 && stock.cost_price > 0 ? (
           <>
-            <div>{fmtProfit(profit)}</div>
+            <div>{hideProfitAmount(privacyMode) ? HIDDEN_AMOUNT : fmtProfit(profit)}</div>
             <div className="s-profit-pct">
-              {profitPct >= 0 ? '+' : ''}
-              {profitPct.toFixed(2)}%
+              {hideProfitPct(privacyMode)
+                ? HIDDEN_PCT
+                : `${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(2)}%`}
             </div>
           </>
         ) : (

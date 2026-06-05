@@ -79,6 +79,21 @@ impl Default for TrayDisplay {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PrivacyMode {
+    None,
+    MarketValue,
+    MarketValueProfit,
+    Full,
+}
+
+impl Default for PrivacyMode {
+    fn default() -> Self {
+        PrivacyMode::None
+    }
+}
+
 /// 图片识别（OpenAI 兼容视觉接口）配置。明文存本地 config.json，是云方案的固有代价。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct VisionConfig {
@@ -132,6 +147,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub tray_display: TrayDisplay,
     #[serde(default)]
+    pub privacy_mode: PrivacyMode,
+    #[serde(default)]
     pub vision: VisionConfig,
 }
 
@@ -141,6 +158,7 @@ impl Default for AppConfig {
             stocks: vec![],
             display_mode: DisplayMode::Summary,
             tray_display: TrayDisplay::Pct,
+            privacy_mode: PrivacyMode::None,
             vision: VisionConfig::default(),
         }
     }
@@ -1322,6 +1340,14 @@ fn set_tray_display(
 }
 
 #[tauri::command]
+fn set_privacy_mode(mode: PrivacyMode, state: tauri::State<AppState>) -> Result<(), String> {
+    let mut cfg = state.config.lock().unwrap();
+    cfg.privacy_mode = mode;
+    save_config(&cfg);
+    Ok(())
+}
+
+#[tauri::command]
 fn get_vision_config(state: tauri::State<AppState>) -> VisionConfig {
     state.config.lock().unwrap().vision.clone()
 }
@@ -1672,6 +1698,7 @@ pub fn run() {
             set_primary,
             set_display_mode,
             set_tray_display,
+            set_privacy_mode,
             get_vision_config,
             set_vision_config,
             recognize_holdings,

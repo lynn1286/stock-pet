@@ -1,5 +1,13 @@
 import { useMemo } from 'react';
 import type { AssetType } from '../../lib/assetType';
+import {
+  hideMarketValue,
+  hideProfitAmount,
+  hideProfitPct,
+  HIDDEN_AMOUNT,
+  HIDDEN_PCT,
+  type PrivacyMode,
+} from '../../lib/privacyMode';
 import { FlashValue } from './FlashValue';
 
 interface StockConfig {
@@ -20,6 +28,7 @@ interface StockState {
 interface PortfolioSummaryProps {
   stocks: StockConfig[];
   liveStocks: Map<string, StockState>;
+  privacyMode: PrivacyMode;
 }
 
 function fmtNum(n: number): string {
@@ -37,7 +46,7 @@ function profitClass(n: number): string {
   return '';
 }
 
-export function PortfolioSummary({ stocks, liveStocks }: PortfolioSummaryProps) {
+export function PortfolioSummary({ stocks, liveStocks, privacyMode }: PortfolioSummaryProps) {
   const summary = useMemo(() => {
     let totalMarketValue = 0;
     let totalCost = 0;
@@ -64,6 +73,16 @@ export function PortfolioSummary({ stocks, liveStocks }: PortfolioSummaryProps) 
 
   if (stocks.length === 0) return null;
 
+  const assetFormatted = hideMarketValue(privacyMode)
+    ? HIDDEN_AMOUNT
+    : fmtNum(summary.totalMarketValue);
+  const profitFormatted = hideProfitAmount(privacyMode)
+    ? HIDDEN_AMOUNT
+    : fmtProfit(summary.totalProfit);
+  const profitPctFormatted = hideProfitPct(privacyMode)
+    ? HIDDEN_PCT
+    : `${summary.totalProfitPct >= 0 ? '+' : ''}${summary.totalProfitPct.toFixed(2)}%`;
+
   return (
     <section className="s-summary-panel">
       <div className="s-summary-scroll">
@@ -72,7 +91,7 @@ export function PortfolioSummary({ stocks, liveStocks }: PortfolioSummaryProps) 
             <span className="s-summary-label">持仓资产</span>
             <FlashValue
               value={summary.totalMarketValue}
-              formatted={fmtNum(summary.totalMarketValue)}
+              formatted={assetFormatted}
               className="s-summary-asset"
             />
           </div>
@@ -83,12 +102,13 @@ export function PortfolioSummary({ stocks, liveStocks }: PortfolioSummaryProps) 
               <div className="s-summary-values">
                 <FlashValue
                   value={summary.totalProfit}
-                  formatted={fmtProfit(summary.totalProfit)}
-                  className={`s-summary-metric-value ${profitClass(summary.totalProfit)}`}
+                  formatted={profitFormatted}
+                  className={`s-summary-metric-value ${hideProfitAmount(privacyMode) ? '' : profitClass(summary.totalProfit)}`}
                 />
-                <span className={`s-summary-metric-pct ${profitClass(summary.totalProfitPct)}`}>
-                  {summary.totalProfitPct >= 0 ? '+' : ''}
-                  {summary.totalProfitPct.toFixed(2)}%
+                <span
+                  className={`s-summary-metric-pct ${hideProfitPct(privacyMode) ? '' : profitClass(summary.totalProfitPct)}`}
+                >
+                  {profitPctFormatted}
                 </span>
               </div>
             </div>

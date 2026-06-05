@@ -1,5 +1,6 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { useStockConfig } from '../hooks/useStockConfig';
+import type { AssetType } from '../lib/assetType';
 import { useFlashEffect } from '../hooks/useFlashEffect';
 import { StockRow } from './settings/StockRow';
 import { EmptyState } from './settings/EmptyState';
@@ -9,7 +10,43 @@ import { EditStockDialog } from './settings/EditStockDialog';
 import { SettingsDialog } from './settings/SettingsDialog';
 import { ImageImportDialog } from './settings/ImageImportDialog';
 import { PortfolioSummary } from './settings/PortfolioSummary';
+import { PrivacyModeButton } from './settings/PrivacyModeButton';
 import { UpdateBadge } from './settings/UpdateBadge';
+
+type SortKey = 'daily_profit' | 'profit';
+type SortDir = 'asc' | 'desc';
+
+interface StockConfigItem {
+  secid: string;
+  quantity: number;
+  cost_price: number;
+  asset_type: AssetType;
+}
+
+interface StockStateItem {
+  price: number;
+  daily_profit: number;
+}
+
+function getDailyProfit(stock: StockConfigItem, live: StockStateItem | undefined): number {
+  return stock.quantity > 0 && live ? live.daily_profit : 0;
+}
+
+function getProfit(stock: StockConfigItem, live: StockStateItem | undefined): number {
+  const price = live?.price || 0;
+  return stock.quantity > 0 && stock.cost_price > 0 && price > 0
+    ? (price - stock.cost_price) * stock.quantity
+    : 0;
+}
+
+function SortTriangles({ active, dir }: { active: boolean; dir: SortDir }) {
+  return (
+    <span className="s-th-sort-arrows" aria-hidden>
+      <span className={`s-th-sort-tri up${active && dir === 'asc' ? ' on' : ''}`}>▲</span>
+      <span className={`s-th-sort-tri down${active && dir === 'desc' ? ' on' : ''}`}>▼</span>
+    </span>
+  );
+}
 
 export function SettingsPage() {
   const {
@@ -29,6 +66,7 @@ export function SettingsPage() {
     setPrimary,
     setDisplayMode,
     setTrayDisplay,
+    setPrivacyMode,
     setVisionConfig,
   } = useStockConfig();
 
@@ -44,6 +82,34 @@ export function SettingsPage() {
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [editDialogError, setEditDialogError] = useState('');
   const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  const handleSort = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+      return;
+    }
+    setSortKey(key);
+    setSortDir('desc');
+  }, [sortKey]);
+
+  const sortedStocks = useMemo(() => {
+    if (!config || !sortKey) return config?.stocks ?? [];
+    const stocks = [...config.stocks];
+    stocks.sort((a, b) => {
+      const av =
+        sortKey === 'daily_profit'
+          ? getDailyProfit(a, liveStocks.get(a.secid))
+          : getProfit(a, liveStocks.get(a.secid));
+      const bv =
+        sortKey === 'daily_profit'
+          ? getDailyProfit(b, liveStocks.get(b.secid))
+          : getProfit(b, liveStocks.get(b.secid));
+      return sortDir === 'asc' ? av - bv : bv - av;
+    });
+    return stocks;
+  }, [config, liveStocks, sortKey, sortDir]);
 
   function syncNameColShadow() {
     const el = tableScrollRef.current;
@@ -142,6 +208,8 @@ export function SettingsPage() {
     );
   }
 
+  const privacyMode = config.privacy_mode ?? 'none';
+
   return (
     <div className="s-app">
       <header className="s-topbar">
@@ -186,6 +254,7 @@ export function SettingsPage() {
               <path d="M21 15l-5-5L5 21" />
             </svg>
           </button>
+          <PrivacyModeButton value={privacyMode} onChange={setPrivacyMode} />
           <UpdateBadge />
           <button
             className="s-topbar-icon-btn"
@@ -227,7 +296,11 @@ export function SettingsPage() {
       </header>
 
       <div className="s-content-split">
-        <PortfolioSummary stocks={config.stocks} liveStocks={liveStocks} />
+        <PortfolioSummary
+          stocks={config.stocks}
+          liveStocks={liveStocks}
+          privacyMode={privacyMode}
+        />
 
         <div
           ref={tableScrollRef}
@@ -243,19 +316,38 @@ export function SettingsPage() {
                   <th className="s-th-name">名称</th>
                   <th className="s-th-num">份额</th>
                   <th className="s-th-num s-th-stacked">现价/成本</th>
-                  <th className="s-th-num">当日收益</th>
-                  <th className="s-th-num">盈亏</th>
+                  <th className="s-th-num s-th-sortable" aria-sort={sortKey === 'daily_profit' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button
+                      type="button"
+                      className={`s-th-sort-btn${sortKey === 'daily_profit' ? ' on' : ''}`}
+                      onClick={() => handleSort('daily_profit')}
+                    >
+                      当日收益
+                      <SortTriangles active={sortKey === 'daily_profit'} dir={sortDir} />
+                    </button>
+                  </th>
+                  <th className="s-th-num s-th-sortable" aria-sort={sortKey === 'profit' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                    <button
+                      type="button"
+                      className={`s-th-sort-btn${sortKey === 'profit' ? ' on' : ''}`}
+                      onClick={() => handleSort('profit')}
+                    >
+                      盈亏
+                      <SortTriangles active={sortKey === 'profit'} dir={sortDir} />
+                    </button>
+                  </th>
                   <th className="s-th-action" aria-label="操作"></th>
                 </tr>
               </thead>
               <tbody>
-                {config.stocks.map((stock) => (
+                {sortedStocks.map((stock) => (
                   <StockRow
                     key={stock.secid}
                     stock={stock}
                     live={liveStocks.get(stock.secid)}
                     isHighlighted={newlyAdded === stock.secid}
                     displayMode={config.display_mode}
+                    privacyMode={privacyMode}
                     flash={flashMap.get(stock.secid)}
                     onEdit={openEditDialog}
                     onDelete={handleDelete}
@@ -271,10 +363,12 @@ export function SettingsPage() {
         open={showSettingsDialog}
         displayMode={config.display_mode}
         trayDisplay={config.tray_display}
+        privacyMode={privacyMode}
         stocks={config.stocks}
         visionConfig={config.vision}
         onDisplayModeChange={setDisplayMode}
         onTrayDisplayChange={setTrayDisplay}
+        onPrivacyModeChange={setPrivacyMode}
         onSetPrimary={setPrimary}
         onSaveVisionConfig={setVisionConfig}
         onClose={() => setShowSettingsDialog(false)}

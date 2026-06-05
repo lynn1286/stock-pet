@@ -2,7 +2,8 @@ import { useRef, useLayoutEffect, useState } from 'react';
 import { MockToggle } from '../../mock/MockToggle';
 import { onDialogMouseDown } from '../../lib/dialogClick';
 import { useUpdater } from '../../hooks/useUpdater';
-
+import type { PrivacyMode } from '../../lib/privacyMode';
+import { PrivacyModeOptions } from './PrivacyModeOptions';
 type DisplayMode = 'primary' | 'summary';
 type TrayDisplay = 'amount' | 'pct';
 
@@ -22,10 +23,12 @@ interface SettingsDialogProps {
   open: boolean;
   displayMode: DisplayMode;
   trayDisplay: TrayDisplay;
+  privacyMode: PrivacyMode;
   stocks: StockItem[];
   visionConfig: VisionConfig;
   onDisplayModeChange: (mode: DisplayMode) => void;
   onTrayDisplayChange: (mode: TrayDisplay) => void;
+  onPrivacyModeChange: (mode: PrivacyMode) => void;
   onSetPrimary: (secid: string) => void;
   onSaveVisionConfig: (cfg: VisionConfig) => Promise<void> | void;
   onClose: () => void;
@@ -35,10 +38,12 @@ export function SettingsDialog({
   open,
   displayMode,
   trayDisplay,
+  privacyMode,
   stocks,
   visionConfig,
   onDisplayModeChange,
   onTrayDisplayChange,
+  onPrivacyModeChange,
   onSetPrimary,
   onSaveVisionConfig,
   onClose,
@@ -178,6 +183,14 @@ export function SettingsDialog({
             </div>
           </div>
           <p className="s-setting-tip">菜单栏托盘图标旁显示当日收益金额还是当日涨跌幅</p>
+        </div>
+
+        <div className="s-setting-divider" />
+
+        <div className="s-setting-group">
+          <span className="s-setting-label">闭眼模式</span>
+          <PrivacyModeOptions value={privacyMode} onChange={onPrivacyModeChange} />
+          <p className="s-setting-tip">隐藏持仓页敏感金额；顶栏眼睛图标可快速切换</p>
         </div>
 
         <div className="s-setting-divider" />
