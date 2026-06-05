@@ -2,7 +2,7 @@ import { HashRouter, Routes, Route } from 'react-router-dom';
 import Pet from './components/Pet';
 import Settings from './components/Settings';
 import MockSettings from './components/MockSettings';
-import { UpdaterProvider } from './context/UpdaterContext';
+import { UpdaterProvider } from './context/UpdaterProvider';
 
 function App() {
   return (
