@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { AssetType } from '../../lib/assetType';
+import { FlashValue } from './FlashValue';
 
 interface StockConfig {
   secid: string;
@@ -30,6 +31,12 @@ function fmtProfit(n: number): string {
   return `${sign}${n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+function profitClass(n: number): string {
+  if (n > 0) return 's-profit-up';
+  if (n < 0) return 's-profit-down';
+  return '';
+}
+
 export function PortfolioSummary({ stocks, liveStocks }: PortfolioSummaryProps) {
   const summary = useMemo(() => {
     let totalMarketValue = 0;
@@ -58,43 +65,51 @@ export function PortfolioSummary({ stocks, liveStocks }: PortfolioSummaryProps) 
   if (stocks.length === 0) return null;
 
   return (
-    <div className="s-summary">
-      <div className="s-summary-header">
-        <span className="s-summary-title">持仓资产</span>
-        <span className="s-summary-asset">{fmtNum(summary.totalMarketValue)}</span>
-      </div>
+    <section className="s-summary-panel">
+      <div className="s-summary-scroll">
+        <div className="s-summary-row">
+          <div className="s-summary-item s-summary-item--asset">
+            <span className="s-summary-label">持仓资产</span>
+            <FlashValue
+              value={summary.totalMarketValue}
+              formatted={fmtNum(summary.totalMarketValue)}
+              className="s-summary-asset"
+            />
+          </div>
 
-      <div className="s-summary-metrics">
-        <div className="s-metric">
-          <span className="s-metric-label">持有收益</span>
-          <span
-            className={`s-metric-value ${summary.totalProfit > 0 ? 's-profit-up' : summary.totalProfit < 0 ? 's-profit-down' : ''}`}
-          >
-            {fmtProfit(summary.totalProfit)}
-          </span>
-          <span
-            className={`s-metric-pct ${summary.totalProfitPct > 0 ? 's-profit-up' : summary.totalProfitPct < 0 ? 's-profit-down' : ''}`}
-          >
-            {summary.totalProfitPct >= 0 ? '+' : ''}
-            {summary.totalProfitPct.toFixed(2)}%
-          </span>
-        </div>
-        <div className="s-metric-divider" />
-        <div className="s-metric">
-          <span className="s-metric-label">当日收益</span>
-          <span
-            className={`s-metric-value ${summary.totalDailyProfit > 0 ? 's-profit-up' : summary.totalDailyProfit < 0 ? 's-profit-down' : ''}`}
-          >
-            {fmtProfit(summary.totalDailyProfit)}
-          </span>
-          <span
-            className={`s-metric-pct ${summary.totalDailyPct > 0 ? 's-profit-up' : summary.totalDailyPct < 0 ? 's-profit-down' : ''}`}
-          >
-            {summary.totalDailyPct >= 0 ? '+' : ''}
-            {summary.totalDailyPct.toFixed(2)}%
-          </span>
+          <div className="s-summary-right">
+            <div className="s-summary-item">
+              <span className="s-summary-label">持有收益</span>
+              <div className="s-summary-values">
+                <FlashValue
+                  value={summary.totalProfit}
+                  formatted={fmtProfit(summary.totalProfit)}
+                  className={`s-summary-metric-value ${profitClass(summary.totalProfit)}`}
+                />
+                <span className={`s-summary-metric-pct ${profitClass(summary.totalProfitPct)}`}>
+                  {summary.totalProfitPct >= 0 ? '+' : ''}
+                  {summary.totalProfitPct.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="s-summary-item">
+              <span className="s-summary-label">当日收益</span>
+              <div className="s-summary-values">
+                <FlashValue
+                  value={summary.totalDailyProfit}
+                  formatted={fmtProfit(summary.totalDailyProfit)}
+                  className={`s-summary-metric-value ${profitClass(summary.totalDailyProfit)}`}
+                />
+                <span className={`s-summary-metric-pct ${profitClass(summary.totalDailyPct)}`}>
+                  {summary.totalDailyPct >= 0 ? '+' : ''}
+                  {summary.totalDailyPct.toFixed(2)}%
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

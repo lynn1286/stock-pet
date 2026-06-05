@@ -291,10 +291,11 @@ export function SettingsPage() {
         </div>
       </header>
 
-      <PortfolioSummary stocks={config.stocks} liveStocks={liveStocks} />
+      <div className="s-content-split">
+        <PortfolioSummary stocks={config.stocks} liveStocks={liveStocks} />
 
-      <div ref={tableScrollRef} className="s-table-scroll" onScroll={syncNameColShadow}>
-        <table className="s-table">
+        <div ref={tableScrollRef} className="s-table-scroll" onScroll={syncNameColShadow}>
+          <table className="s-table">
           <thead>
             <tr>
               <th className="s-th-name">名称</th>
@@ -330,6 +331,7 @@ export function SettingsPage() {
             </tbody>
           )}
         </table>
+        </div>
       </div>
 
       <SettingsDialog

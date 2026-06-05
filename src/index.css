@@ -373,6 +373,14 @@ html:has(.s-app) #root {
   overflow: hidden;
 }
 
+.s-content-split {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .s-table-scroll {
   flex: 1;
   min-height: 0;
@@ -485,80 +493,135 @@ html:has(.s-app) #root {
 
 /* ---- Portfolio Summary ---- */
 
-.s-summary {
+.s-summary-panel {
   flex-shrink: 0;
-  padding: 12px 0;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
 }
 
-.s-summary-header {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 0 16px;
+.s-summary-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 10px 16px;
 }
 
-.s-summary-title {
-  font-size: 12px;
+.s-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.s-summary-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.s-summary-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-shrink: 0;
+}
+
+.s-summary-label {
+  font-size: 11px;
   color: var(--ink3);
+  white-space: nowrap;
 }
 
 .s-summary-asset {
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ink);
   font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
-  letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
-.s-summary-metrics {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 10px;
-  padding: 0 16px;
-}
-
-.s-metric {
+.s-summary-values {
   display: flex;
   align-items: baseline;
   gap: 6px;
 }
 
-.s-metric-label {
-  font-size: 11px;
-  color: var(--ink3);
+.s-flash-value {
+  display: inline-block;
+  transition:
+    color 0.5s ease,
+    transform 0.5s ease;
 }
 
-.s-metric-value {
+.s-flash-value--up {
+  animation: s-price-flash-up 0.8s ease-out;
+}
+
+.s-flash-value--down {
+  animation: s-price-flash-down 0.8s ease-out;
+}
+
+@keyframes s-price-flash-up {
+  0% {
+    color: var(--up);
+    transform: translateY(4px);
+  }
+  35% {
+    color: var(--up);
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes s-price-flash-down {
+  0% {
+    color: var(--down);
+    transform: translateY(-4px);
+  }
+  35% {
+    color: var(--down);
+    transform: translateY(2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.s-summary-metric-value {
   font-size: 13px;
   font-weight: 600;
   font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
+  white-space: nowrap;
 }
 
-.s-metric-pct {
+.s-summary-metric-pct {
+  align-self: flex-start;
   font-size: 11px;
   font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
   padding: 1px 5px;
   border-radius: 3px;
 }
 
-.s-metric-pct.s-profit-up {
+.s-summary-metric-pct.s-profit-up {
   background: color-mix(in srgb, var(--up) 10%, transparent);
   color: var(--up);
 }
 
-.s-metric-pct.s-profit-down {
+.s-summary-metric-pct.s-profit-down {
   background: color-mix(in srgb, var(--down) 10%, transparent);
   color: var(--down);
 }
 
-.s-metric-divider {
-  width: 1px;
-  height: 14px;
-  background: var(--border);
+@media (prefers-reduced-motion: reduce) {
+  .s-flash-value--up,
+  .s-flash-value--down {
+    animation: none;
+  }
 }
 
 /* ---- Mode Bar ---- */
@@ -864,7 +927,7 @@ html:has(.s-app) #root {
 .s-table thead {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 3;
   background: var(--bg2);
   border-bottom: 1px solid var(--border);
 }
@@ -1004,12 +1067,19 @@ html:has(.s-app) #root {
   }
 }
 
-.s-table .s-th-name,
 .s-table .s-td-name {
   position: sticky;
   left: 0;
   z-index: 2;
   background: var(--bg);
+  overflow: visible;
+}
+
+.s-table .s-th-name {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  background: var(--bg2);
   overflow: visible;
 }
 
@@ -1025,11 +1095,6 @@ html:has(.s-app) #root {
   pointer-events: none;
   box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.12);
   transition: box-shadow 0.15s ease;
-}
-
-.s-table thead .s-th-name {
-  z-index: 3;
-  background: var(--bg2);
 }
 
 .s-table tbody tr:hover .s-td-name {

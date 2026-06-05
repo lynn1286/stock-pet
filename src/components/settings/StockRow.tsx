@@ -1,4 +1,5 @@
 import { assetTypeTagClass, assetTypeTagLabel, type AssetType } from '../../lib/assetType';
+import { FlashValue } from './FlashValue';
 
 interface StockConfig {
   secid: string;
@@ -97,7 +98,12 @@ export function StockRow({
       <td className="s-td-num">{stock.quantity > 0 ? fmtNum(stock.quantity, 2) : '-'}</td>
 
       <td className="s-td-num s-td-stacked">
-        <div>{currentPrice > 0 ? fmtNum(currentPrice) : '-'}</div>
+        <div>
+          <FlashValue
+            value={currentPrice}
+            formatted={currentPrice > 0 ? fmtNum(currentPrice) : '-'}
+          />
+        </div>
         <div>{stock.cost_price > 0 ? fmtNum(stock.cost_price, 4) : '-'}</div>
       </td>
 
