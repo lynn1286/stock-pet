@@ -151,14 +151,25 @@ struct AppState {
     stocks_state: Mutex<Vec<StockState>>,
     /// 当日 22:00 晚间净值是否已拉取
     evening_fetch_date: Mutex<Option<NaiveDate>>,
+    mock_state: Mutex<MockState>,
 }
 
-#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 enum TradeStatus {
+    #[default]
     Trading,
     Rest,
     Sleep,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct MockState {
+    enabled: bool,
+    #[serde(rename = "tradeStatus")]
+    trade_status: TradeStatus,
+    #[serde(rename = "changePct")]
+    change_pct: f64,
 }
 
 // ========== 配置管理 ==========
@@ -1075,13 +1086,35 @@ fn set_display_mode(
 
 // ========== 托盘刷新 ==========
 
+fn resolve_tray_context(
+    app: &AppHandle,
+    stocks: &[StockState],
+    config: &AppConfig,
+) -> (TradeStatus, StockState) {
+    let mut display = calc_display_state(stocks, &config.display_mode, config);
+    let trade_status = get_trade_status();
+
+    #[cfg(debug_assertions)]
+    {
+        let mock = app.state::<AppState>().mock_state.lock().unwrap().clone();
+        if mock.enabled {
+            display.change_pct = mock.change_pct;
+            if display.market_value > 0.0 {
+                display.daily_profit = display.market_value * mock.change_pct / 100.0;
+            }
+            return (mock.trade_status, display);
+        }
+    }
+
+    (trade_status, display)
+}
+
 fn refresh_tray(app: &AppHandle, stocks: &[StockState], config: &AppConfig) {
     let Some(tray) = app.tray_by_id("main-tray") else {
         return;
     };
 
-    let trade_status = get_trade_status();
-    let display = calc_display_state(stocks, &config.display_mode, config);
+    let (trade_status, display) = resolve_tray_context(app, stocks, config);
 
     let title = match trade_status {
         TradeStatus::Trading | TradeStatus::Rest => match config.tray_display {
@@ -1111,6 +1144,22 @@ fn refresh_tray(app: &AppHandle, stocks: &[StockState], config: &AppConfig) {
 
     let _ = tray.set_title(Some(&title));
     let _ = tray.set_tooltip(Some(&tooltip));
+}
+
+#[tauri::command]
+fn set_mock_state(
+    state: MockState,
+    app: AppHandle,
+    app_state: tauri::State<AppState>,
+) -> Result<(), String> {
+    #[cfg(debug_assertions)]
+    {
+        *app_state.mock_state.lock().unwrap() = state;
+        let config = app_state.config.lock().unwrap().clone();
+        let stocks = app_state.stocks_state.lock().unwrap().clone();
+        refresh_tray(&app, &stocks, &config);
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -1305,7 +1354,7 @@ fn create_mock_panel(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
 }
 
 #[tauri::command]
-fn open_mock_panel(app: AppHandle) -> Result<(), String> {
+fn open_mock_panel(app: AppHandle, caller: tauri::WebviewWindow) -> Result<(), String> {
     let window = match app.get_webview_window("mock-panel") {
         Some(window) => window,
         None => create_mock_panel(&app)?,
@@ -1313,6 +1362,8 @@ fn open_mock_panel(app: AppHandle) -> Result<(), String> {
 
     configure_mock_panel(&window)?;
     window.show().map_err(|e| e.to_string())?;
+    // show 会把焦点切到 mock 窗，立即还给触发操作的设置窗
+    caller.set_focus().map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1461,6 +1512,7 @@ pub fn run() {
             config: Mutex::new(load_config()),
             stocks_state: Mutex::new(Vec::new()),
             evening_fetch_date: Mutex::new(None),
+            mock_state: Mutex::new(MockState::default()),
         })
         .invoke_handler(tauri::generate_handler![
             get_config,
@@ -1481,6 +1533,7 @@ pub fn run() {
             open_mock_panel,
             close_mock_panel,
             is_mock_panel_open,
+            set_mock_state,
         ])
         .setup(|app| {
             #[cfg(target_os = "macos")]

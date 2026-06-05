@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { onDialogMouseDown } from '../lib/dialogClick';
 import { getMockState, initMockStateSync, setMockState, useMockState } from './mockStore';
 
 export function MockToggle() {
@@ -48,9 +49,9 @@ export function MockToggle() {
             <button
               type="button"
               className={`s-seg-btn${mock.enabled ? ' on' : ''}`}
-              onClick={(e) => {
+              onMouseDown={(e) => {
                 e.stopPropagation();
-                void handleToggle(true);
+                onDialogMouseDown(e, () => void handleToggle(true));
               }}
             >
               开
@@ -58,9 +59,9 @@ export function MockToggle() {
             <button
               type="button"
               className={`s-seg-btn${!mock.enabled ? ' on' : ''}`}
-              onClick={(e) => {
+              onMouseDown={(e) => {
                 e.stopPropagation();
-                void handleToggle(false);
+                onDialogMouseDown(e, () => void handleToggle(false));
               }}
             >
               关

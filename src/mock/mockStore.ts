@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { emit, listen } from '@tauri-apps/api/event';
 import type { TradeStatus } from '../types/pet';
 
@@ -45,10 +46,20 @@ function notifyListeners(): void {
   listeners.forEach((fn) => fn());
 }
 
+async function syncMockToBackend(): Promise<void> {
+  if (!import.meta.env.DEV) return;
+  try {
+    await invoke('set_mock_state', { state });
+  } catch {
+    // 非 Tauri 环境忽略
+  }
+}
+
 export async function setMockState(patch: Partial<MockState>): Promise<void> {
   state = { ...state, ...patch };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   notifyListeners();
+  await syncMockToBackend();
   await emit('mock-state', state);
 }
 
@@ -57,10 +68,12 @@ export function useMockState(): MockState {
 }
 
 export async function initMockStateSync(): Promise<() => void> {
+  await syncMockToBackend();
   const unlisten = await listen<MockState>('mock-state', (event) => {
     state = event.payload;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     notifyListeners();
+    void syncMockToBackend();
   });
   return unlisten;
 }
@@ -70,7 +83,7 @@ export const MOCK_PRESETS: { label: string; tradeStatus: TradeStatus; changePct:
   { label: '待机', tradeStatus: 'rest', changePct: 0 },
   { label: '+5%', tradeStatus: 'trading', changePct: 5 },
   { label: '+1.5%', tradeStatus: 'trading', changePct: 1.5 },
-  { label: '0%', tradeStatus: 'trading', changePct: 0.3 },
+  { label: '0%', tradeStatus: 'trading', changePct: 0 },
   { label: '-2%', tradeStatus: 'trading', changePct: -2 },
   { label: '-4%', tradeStatus: 'trading', changePct: -4 },
   { label: '-7%', tradeStatus: 'trading', changePct: -7 },
