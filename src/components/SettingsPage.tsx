@@ -229,27 +229,25 @@ export function SettingsPage() {
       <div className="s-content-split">
         <PortfolioSummary stocks={config.stocks} liveStocks={liveStocks} />
 
-        <div ref={tableScrollRef} className="s-table-scroll" onScroll={syncNameColShadow}>
-          <table className="s-table">
-            <thead>
-              <tr>
-                <th className="s-th-name">名称</th>
-                <th className="s-th-num">份额</th>
-                <th className="s-th-num s-th-stacked">现价/成本</th>
-                <th className="s-th-num">当日收益</th>
-                <th className="s-th-num">盈亏</th>
-                <th className="s-th-action" aria-label="操作"></th>
-              </tr>
-            </thead>
-            {config.stocks.length === 0 ? (
-              <tbody>
+        <div
+          ref={tableScrollRef}
+          className={`s-table-scroll${config.stocks.length === 0 ? ' s-table-scroll--empty' : ''}`}
+          onScroll={config.stocks.length > 0 ? syncNameColShadow : undefined}
+        >
+          {config.stocks.length === 0 ? (
+            <EmptyState onAdd={() => setShowAddDialog(true)} />
+          ) : (
+            <table className="s-table">
+              <thead>
                 <tr>
-                  <td colSpan={6}>
-                    <EmptyState onAdd={() => setShowAddDialog(true)} />
-                  </td>
+                  <th className="s-th-name">名称</th>
+                  <th className="s-th-num">份额</th>
+                  <th className="s-th-num s-th-stacked">现价/成本</th>
+                  <th className="s-th-num">当日收益</th>
+                  <th className="s-th-num">盈亏</th>
+                  <th className="s-th-action" aria-label="操作"></th>
                 </tr>
-              </tbody>
-            ) : (
+              </thead>
               <tbody>
                 {config.stocks.map((stock) => (
                   <StockRow
@@ -264,8 +262,8 @@ export function SettingsPage() {
                   />
                 ))}
               </tbody>
-            )}
-          </table>
+            </table>
+          )}
         </div>
       </div>
 
