@@ -231,7 +231,11 @@ export function SettingsPage() {
         </div>
         <div className="s-topbar-right">
           <span className="s-topbar-count">{config.stocks.length} 只</span>
-          {primaryStock && <span className="s-topbar-primary">{primaryStock.name}</span>}
+          {primaryStock && (
+            <span className="s-topbar-primary" title={primaryStock.name}>
+              {primaryStock.name}
+            </span>
+          )}
           <button
             className="s-topbar-icon-btn"
             onClick={() => setShowImportDialog(true)}

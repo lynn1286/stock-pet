@@ -409,6 +409,7 @@ html:has(.s-app) #root {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .s-topbar-icon {
@@ -427,11 +428,14 @@ html:has(.s-app) #root {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .s-topbar-count {
   font-size: 12px;
   color: var(--ink3);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .s-topbar-primary {
@@ -440,6 +444,10 @@ html:has(.s-app) #root {
   padding: 2px 8px;
   background: var(--bg2);
   border-radius: 4px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .s-topbar-add {
