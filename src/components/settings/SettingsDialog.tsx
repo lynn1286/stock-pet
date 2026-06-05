@@ -253,7 +253,7 @@ export function SettingsDialog({
               <div className="s-setting-row s-update-actions">
                 <button
                   type="button"
-                  className={`s-dialog-submit${updater.phase === 'available' ? ' s-update-btn--pulse' : ''}`}
+                  className="s-dialog-submit"
                   disabled={
                     updater.phase === 'checking' ||
                     updater.phase === 'downloading' ||

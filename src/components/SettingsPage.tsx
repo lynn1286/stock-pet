@@ -9,6 +9,7 @@ import { EditStockDialog } from './settings/EditStockDialog';
 import { SettingsDialog } from './settings/SettingsDialog';
 import { ImageImportDialog } from './settings/ImageImportDialog';
 import { PortfolioSummary } from './settings/PortfolioSummary';
+import { UpdateBadge } from './settings/UpdateBadge';
 
 export function SettingsPage() {
   const {
@@ -186,6 +187,7 @@ export function SettingsPage() {
               <path d="M21 15l-5-5L5 21" />
             </svg>
           </button>
+          <UpdateBadge />
           <button
             className="s-topbar-icon-btn"
             onClick={() => setShowSettingsDialog(true)}

@@ -718,14 +718,61 @@ html:has(.s-app) #root {
   }
 }
 
-.s-update-btn--pulse {
-  background: #22c55e;
-  border-color: #16a34a;
+.s-update-badge {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, #22c55e 14%, transparent);
+  color: #16a34a;
+  cursor: pointer;
   animation: s-update-pulse 2.2s ease-in-out infinite;
+  transition: background 0.15s;
 }
 
-.s-update-btn--pulse:hover {
-  background: #16a34a;
+.s-update-badge svg {
+  width: 15px;
+  height: 15px;
+}
+
+.s-update-badge:hover:not(:disabled) {
+  background: color-mix(in srgb, #22c55e 22%, transparent);
+}
+
+.s-update-badge--progress {
+  animation: none;
+  cursor: default;
+  background: transparent;
+}
+
+.s-update-badge--progress:disabled {
+  opacity: 1;
+}
+
+.s-update-badge-ring {
+  width: 28px;
+  height: 28px;
+  transform: rotate(-90deg);
+}
+
+.s-update-badge-ring-track {
+  fill: none;
+  stroke: color-mix(in srgb, #22c55e 22%, transparent);
+  stroke-width: 2.5;
+}
+
+.s-update-badge-ring-progress {
+  fill: none;
+  stroke: #22c55e;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 75.4;
+  transition: stroke-dashoffset 0.2s ease;
 }
 
 .s-mock-panel {
