@@ -95,7 +95,9 @@ pnpm format         # 格式化
 
 ### CI / Release
 
-推送到 `main` 分支时，GitHub Actions 在 macOS（Intel + Apple Silicon）和 Windows 上构建，并自动发布到 [Releases](https://github.com/lynn1286/stock-pet/releases)。每个 Release 包含 3 个安装包（2 个 dmg + 1 个 exe）。
+推送到 `main` 分支时，GitHub Actions 在 macOS（Intel + Apple Silicon）和 Windows 上构建，并自动发布到 [Releases](https://github.com/lynn1286/stock-pet/releases)。Release 包含安装包（dmg / exe）、签名更新包和 `latest.json`，已安装应用可在设置内一键更新。
+
+需在仓库 **Settings → Secrets → Actions** 配置 `TAURI_SIGNING_PRIVATE_KEY`（`~/.tauri/stock-pet.key` 全文）。
 
 ## 技术栈
 

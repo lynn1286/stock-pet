@@ -1,7 +1,7 @@
 {
   "name": "stock-pet",
   "private": true,
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "会盯盘的桌宠",
   "type": "module",
   "scripts": {
@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",
+    "@tauri-apps/plugin-opener": "~2.5.4",
     "@tauri-apps/plugin-process": "~2.3.1",
     "@tauri-apps/plugin-updater": "~2.10.1",
     "react": "^19.2.6",

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getVersion } from '@tauri-apps/api/app';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { userMessage } from '../utils/errmsg';
 
 export type UpdatePhase =
   | 'idle'
@@ -17,6 +16,13 @@ export const isUpdaterEnabled =
   typeof window !== 'undefined' &&
   import.meta.env.PROD &&
   '__TAURI_INTERNALS__' in window;
+
+function updateErrorMessage(e: unknown): string {
+  if (e instanceof Error && e.message) {
+    return e.message;
+  }
+  return '更新失败，请稍后重试';
+}
 
 export function useAppUpdater(options?: { autoCheck?: boolean }) {
   const pendingUpdate = useRef<Update | null>(null);
@@ -46,9 +52,8 @@ export function useAppUpdater(options?: { autoCheck?: boolean }) {
       pendingUpdate.current = null;
       setAvailableVersion('');
       setPhase('error');
-      const message = userMessage(e);
-      setError(message);
-      if (!silent) throw e;
+      setError(updateErrorMessage(e));
+      if (!silent) return null;
       return null;
     }
   }, []);
@@ -65,6 +70,8 @@ export function useAppUpdater(options?: { autoCheck?: boolean }) {
       setAvailableVersion(update.version);
       setPhase('downloading');
       setProgress(0);
+      setError('');
+
       let total = 0;
       let downloaded = 0;
       await update.downloadAndInstall((event) => {
@@ -76,13 +83,16 @@ export function useAppUpdater(options?: { autoCheck?: boolean }) {
           if (total > 0) {
             setProgress(Math.min(100, Math.round((downloaded / total) * 100)));
           }
+        } else if (event.event === 'Finished') {
+          setProgress(100);
         }
       });
+
       setPhase('ready');
       await relaunch();
     } catch (e) {
       setPhase('error');
-      setError(userMessage(e));
+      setError(updateErrorMessage(e));
     }
   }, []);
 

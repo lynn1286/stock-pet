@@ -693,6 +693,21 @@ html:has(.s-app) #root {
   flex-wrap: wrap;
 }
 
+.s-update-progress {
+  height: 6px;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink3) 20%, transparent);
+  overflow: hidden;
+}
+
+.s-update-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: #22c55e;
+  transition: width 0.2s ease;
+}
+
 @keyframes s-update-pulse {
   0%,
   100% {

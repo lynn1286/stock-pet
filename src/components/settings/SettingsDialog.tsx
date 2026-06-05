@@ -242,11 +242,23 @@ export function SettingsDialog({
               {updater.phase === 'error' && (
                 <p className="s-setting-tip s-update-tip--error">{updater.error}</p>
               )}
+              {(updater.phase === 'downloading' || updater.phase === 'ready') && (
+                <div className="s-update-progress" aria-label="更新进度">
+                  <div
+                    className="s-update-progress-bar"
+                    style={{ width: `${updater.progress}%` }}
+                  />
+                </div>
+              )}
               <div className="s-setting-row s-update-actions">
                 <button
                   type="button"
                   className={`s-dialog-submit${updater.phase === 'available' ? ' s-update-btn--pulse' : ''}`}
-                  disabled={updater.phase === 'checking' || updater.phase === 'downloading'}
+                  disabled={
+                    updater.phase === 'checking' ||
+                    updater.phase === 'downloading' ||
+                    updater.phase === 'ready'
+                  }
                   onClick={() =>
                     void (updater.phase === 'available'
                       ? updater.downloadAndInstall()
@@ -254,15 +266,17 @@ export function SettingsDialog({
                   }
                 >
                   {updater.phase === 'checking' && '检查中…'}
-                  {updater.phase === 'downloading' && `下载中… ${updater.progress}%`}
+                  {updater.phase === 'downloading' && `更新中… ${updater.progress}%`}
+                  {updater.phase === 'ready' && '正在重启…'}
                   {updater.phase === 'available' && `更新 v${updater.availableVersion}`}
                   {updater.phase !== 'checking' &&
                     updater.phase !== 'downloading' &&
+                    updater.phase !== 'ready' &&
                     updater.phase !== 'available' &&
                     '检查更新'}
                 </button>
               </div>
-              <p className="s-setting-tip">启动时自动检查更新；点击更新后应用将重启。</p>
+              <p className="s-setting-tip">启动时自动检查更新；点击更新后将下载安装并重启应用。</p>
             </div>
           </>
         )}
