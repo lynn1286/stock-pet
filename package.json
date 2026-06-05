@@ -1,7 +1,7 @@
 {
   "name": "stock-pet",
   "private": true,
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "会盯盘的桌宠",
   "type": "module",
   "scripts": {

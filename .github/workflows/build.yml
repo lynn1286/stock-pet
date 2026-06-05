@@ -123,6 +123,7 @@ jobs:
             cp "$installer" "$update"
             if [ -f "${installer}.sig" ]; then
               cp "${installer}.sig" "${update}.sig"
+              rm -f "${installer}.sig"
             fi
             ls -la
           fi
@@ -149,8 +150,9 @@ jobs:
             ${{ matrix.bundle_root }}/dmg/*.dmg
             ${{ matrix.bundle_root }}/macos/*.app.tar.gz
             ${{ matrix.bundle_root }}/macos/*.app.tar.gz.sig
-            ${{ matrix.bundle_root }}/nsis/*.exe
-            ${{ matrix.bundle_root }}/nsis/*.exe.sig
+            ${{ matrix.bundle_root }}/nsis/*-setup.exe
+            ${{ matrix.bundle_root }}/nsis/${{ matrix.id }}-update.exe
+            ${{ matrix.bundle_root }}/nsis/${{ matrix.id }}-update.exe.sig
 
   release:
     needs: build
