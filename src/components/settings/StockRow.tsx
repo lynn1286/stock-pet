@@ -1,4 +1,4 @@
-import { assetTypeLabel, assetTypeTagClass, type AssetType } from '../../lib/assetType';
+import { assetTypeTagClass, assetTypeTagLabel, type AssetType } from '../../lib/assetType';
 
 interface StockConfig {
   secid: string;
@@ -21,16 +21,10 @@ interface StockState {
 interface StockRowProps {
   stock: StockConfig;
   live: StockState | undefined;
-  isEditingQty: boolean;
-  isEditingCost: boolean;
-  editValue: string;
   isHighlighted?: boolean;
   displayMode: 'primary' | 'summary';
   flash?: 'up' | 'down';
-  onStartEdit: (secid: string, field: 'quantity' | 'cost_price', value: number) => void;
-  onCommitEdit: () => void;
-  onEditKey: (e: React.KeyboardEvent) => void;
-  onEditValueChange: (value: string) => void;
+  onEdit: (secid: string) => void;
   onDelete: (secid: string) => void;
 }
 
@@ -51,16 +45,10 @@ function fmtProfit(n: number): string {
 export function StockRow({
   stock,
   live,
-  isEditingQty,
-  isEditingCost,
-  editValue,
   isHighlighted,
   displayMode,
   flash,
-  onStartEdit,
-  onCommitEdit,
-  onEditKey,
-  onEditValueChange,
+  onEdit,
   onDelete,
 }: StockRowProps) {
   const currentPrice = live?.price || 0;
@@ -82,81 +70,36 @@ export function StockRow({
         className="s-td-name"
         title={`${stock.name}（${stock.secid.split('.')[1] || stock.secid}）`}
       >
-        <div className="s-td-name-main">
-          {displayMode === 'primary' && stock.is_primary && (
-            <span className="s-dropdown-tag s-tag-primary">主</span>
-          )}
-          <span className={`s-dropdown-tag ${assetTypeTagClass(stock.asset_type)}`}>
-            {assetTypeLabel(stock.asset_type)}
+        <div className="s-td-name-text">{stock.name}</div>
+        <div className="s-td-name-meta">
+          <span className="s-td-name-tags">
+            {displayMode === 'primary' && stock.is_primary && (
+              <span className="s-dropdown-tag s-tag-primary">主</span>
+            )}
+            <span className={`s-dropdown-tag ${assetTypeTagClass(stock.asset_type)}`}>
+              {assetTypeTagLabel(stock.asset_type)}
+            </span>
           </span>
-          <span className="s-td-name-text">{stock.name}</span>
+          <span className="s-td-name-detail">
+            <span className="s-td-name-code">{stock.secid.split('.')[1] || stock.secid}</span>
+            {marketValue > 0 && (
+              <>
+                <span className="s-td-name-dot" aria-hidden>
+                  ·
+                </span>
+                <span className="s-td-name-hold">持有 {fmtNum(marketValue)} 元</span>
+              </>
+            )}
+          </span>
         </div>
-        <div className="s-td-name-sub">
-          {marketValue > 0
-            ? `持有 ${fmtNum(marketValue)} 元`
-            : stock.secid.split('.')[1] || stock.secid}
-        </div>
       </td>
 
-      <td className="s-td-num">
-        {isEditingQty ? (
-          <span className="s-editing-cell">
-            <input
-              className="s-edit-input"
-              value={editValue}
-              onChange={(e) => onEditValueChange(e.target.value)}
-              onBlur={onCommitEdit}
-              onKeyDown={onEditKey}
-              autoFocus
-              type="number"
-              min="0"
-              step="0.01"
-              aria-label="编辑份额"
-            />
-          </span>
-        ) : (
-          <button
-            type="button"
-            className={`s-editable ${stock.quantity === 0 ? 's-editable-empty' : ''}`}
-            onClick={() => onStartEdit(stock.secid, 'quantity', stock.quantity)}
-            title="编辑份额"
-            aria-label={`编辑份额，当前 ${stock.quantity > 0 ? fmtNum(stock.quantity, 2) : '未填写'}`}
-          >
-            {stock.quantity > 0 ? fmtNum(stock.quantity, 2) : '点击填写'}
-          </button>
-        )}
-      </td>
+      <td className="s-td-num">{stock.quantity > 0 ? fmtNum(stock.quantity, 2) : '-'}</td>
 
-      <td className="s-td-num">
-        {isEditingCost ? (
-          <span className="s-editing-cell">
-            <input
-              className="s-edit-input"
-              value={editValue}
-              onChange={(e) => onEditValueChange(e.target.value)}
-              onBlur={onCommitEdit}
-              onKeyDown={onEditKey}
-              autoFocus
-              type="number"
-              min="0"
-              step="0.0001"
-              aria-label="编辑成本价"
-            />
-          </span>
-        ) : (
-          <button
-            type="button"
-            className={`s-editable ${stock.cost_price === 0 ? 's-editable-empty' : ''}`}
-            onClick={() => onStartEdit(stock.secid, 'cost_price', stock.cost_price)}
-            title="编辑成本价"
-            aria-label={`编辑成本价，当前 ${stock.cost_price > 0 ? fmtNum(stock.cost_price, 4) : '未填写'}`}
-          >
-            {stock.cost_price > 0 ? fmtNum(stock.cost_price, 4) : '点击填写'}
-          </button>
-        )}
+      <td className="s-td-num s-td-stacked">
+        <div>{currentPrice > 0 ? fmtNum(currentPrice) : '-'}</div>
+        <div>{stock.cost_price > 0 ? fmtNum(stock.cost_price, 4) : '-'}</div>
       </td>
-
-      <td className="s-td-num">{currentPrice > 0 ? fmtNum(currentPrice) : '-'}</td>
 
       <td
         className={`s-td-num s-profit ${live && live.change_pct > 0 ? 's-profit-up' : live && live.change_pct < 0 ? 's-profit-down' : ''}`}
@@ -193,26 +136,48 @@ export function StockRow({
       </td>
 
       <td className="s-td-action">
-        <button
-          type="button"
-          className="s-row-delete"
-          onClick={() => onDelete(stock.secid)}
-          aria-label={`删除 ${stock.name}`}
-          title="删除"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
+        <div className="s-row-actions">
+          <button
+            type="button"
+            className="s-row-edit"
+            onClick={() => onEdit(stock.secid)}
+            aria-label={`编辑 ${stock.name}`}
+            title="编辑"
           >
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
-        </button>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className="s-row-delete"
+            onClick={() => onDelete(stock.secid)}
+            aria-label={`删除 ${stock.name}`}
+            title="删除"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+          </button>
+        </div>
       </td>
     </tr>
   );

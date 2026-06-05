@@ -1,12 +1,12 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useStockConfig } from '../hooks/useStockConfig';
 import { useStockSearch } from '../hooks/useStockSearch';
-import { useInlineEdit } from '../hooks/useInlineEdit';
 import { useFlashEffect } from '../hooks/useFlashEffect';
 import { StockRow } from './settings/StockRow';
 import { EmptyState } from './settings/EmptyState';
 import { Toast } from './settings/Toast';
 import { AddStockDialog } from './settings/AddStockDialog';
+import { EditStockDialog } from './settings/EditStockDialog';
 import { SettingsDialog } from './settings/SettingsDialog';
 import { ImageImportDialog } from './settings/ImageImportDialog';
 import { PortfolioSummary } from './settings/PortfolioSummary';
@@ -44,9 +44,6 @@ export function SettingsPage() {
     resetSearch,
   } = useStockSearch();
 
-  const { editing, editValue, setEditValue, startEdit, cancelEdit, handleEditKey } =
-    useInlineEdit();
-
   const flashMap = useFlashEffect(liveStocks);
 
   const [newSecid, setNewSecid] = useState('');
@@ -59,6 +56,18 @@ export function SettingsPage() {
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [newlyAdded, setNewlyAdded] = useState<string | null>(null);
+  const [editingSecid, setEditingSecid] = useState<string | null>(null);
+  const [editQuantity, setEditQuantity] = useState('');
+  const [editCostPrice, setEditCostPrice] = useState('');
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editDialogError, setEditDialogError] = useState('');
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+
+  function syncNameColShadow() {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    el.classList.toggle('s-table-scroll--h', el.scrollLeft > 0);
+  }
 
   const primaryStock = useMemo(() => config?.stocks.find((s) => s.is_primary), [config]);
   const existingSecids = useMemo(() => new Set(config?.stocks.map((s) => s.secid) ?? []), [config]);
@@ -82,26 +91,49 @@ export function SettingsPage() {
     setNewName(name);
   }
 
-  async function handleCommitEdit() {
-    if (!editing || !config) return;
-    const stock = config.stocks.find((s) => s.secid === editing.secid);
+  const editingStock = useMemo(
+    () => config?.stocks.find((s) => s.secid === editingSecid) ?? null,
+    [config, editingSecid],
+  );
+
+  function openEditDialog(secid: string) {
+    const stock = config?.stocks.find((s) => s.secid === secid);
     if (!stock) return;
-    const val = parseFloat(editValue) || 0;
-    const qty = editing.field === 'quantity' ? val : stock.quantity;
-    const cost = editing.field === 'cost_price' ? val : stock.cost_price;
-    try {
-      await updateStock(editing.secid, qty, cost);
-      cancelEdit();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '操作失败');
-    }
+    setEditingSecid(secid);
+    setEditQuantity(stock.quantity > 0 ? stock.quantity.toFixed(4) : '');
+    setEditCostPrice(stock.cost_price > 0 ? stock.cost_price.toFixed(4) : '');
+    setEditDialogError('');
   }
 
-  function handleEditKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
-      handleCommitEdit();
-    } else {
-      handleEditKey(e);
+  function closeEditDialog() {
+    setEditingSecid(null);
+    setEditQuantity('');
+    setEditCostPrice('');
+    setEditDialogError('');
+  }
+
+  async function handleSaveEdit() {
+    if (!editingSecid || editSubmitting) return;
+    const qty = parseFloat(editQuantity);
+    const cost = parseFloat(editCostPrice);
+    if (!editQuantity || Number.isNaN(qty) || qty <= 0) {
+      setEditDialogError('请输入有效份额');
+      return;
+    }
+    if (!editCostPrice || Number.isNaN(cost) || cost <= 0) {
+      setEditDialogError('请输入有效成本价');
+      return;
+    }
+    setEditSubmitting(true);
+    setEditDialogError('');
+    try {
+      await updateStock(editingSecid, qty, cost);
+      closeEditDialog();
+      setSuccess('已保存');
+    } catch (e) {
+      setEditDialogError(e instanceof Error ? e.message : '保存失败');
+    } finally {
+      setEditSubmitting(false);
     }
   }
 
@@ -261,14 +293,13 @@ export function SettingsPage() {
 
       <PortfolioSummary stocks={config.stocks} liveStocks={liveStocks} />
 
-      <div className="s-table-scroll">
+      <div ref={tableScrollRef} className="s-table-scroll" onScroll={syncNameColShadow}>
         <table className="s-table">
           <thead>
             <tr>
               <th className="s-th-name">名称</th>
               <th className="s-th-num">份额</th>
-              <th className="s-th-num">成本价</th>
-              <th className="s-th-num">现价</th>
+              <th className="s-th-num s-th-stacked">现价/成本</th>
               <th className="s-th-num">当日收益</th>
               <th className="s-th-num">盈亏</th>
               <th className="s-th-action" aria-label="操作"></th>
@@ -277,7 +308,7 @@ export function SettingsPage() {
           {config.stocks.length === 0 ? (
             <tbody>
               <tr>
-                <td colSpan={7}>
+                <td colSpan={6}>
                   <EmptyState onAdd={() => setShowAddDialog(true)} />
                 </td>
               </tr>
@@ -289,16 +320,10 @@ export function SettingsPage() {
                   key={stock.secid}
                   stock={stock}
                   live={liveStocks.get(stock.secid)}
-                  isEditingQty={editing?.secid === stock.secid && editing.field === 'quantity'}
-                  isEditingCost={editing?.secid === stock.secid && editing.field === 'cost_price'}
-                  editValue={editValue}
                   isHighlighted={newlyAdded === stock.secid}
                   displayMode={config.display_mode}
                   flash={flashMap.get(stock.secid)}
-                  onStartEdit={startEdit}
-                  onCommitEdit={handleCommitEdit}
-                  onEditKey={handleEditKeyDown}
-                  onEditValueChange={setEditValue}
+                  onEdit={openEditDialog}
                   onDelete={handleDelete}
                 />
               ))}
@@ -334,6 +359,23 @@ export function SettingsPage() {
         onImported={handleImported}
         onClose={() => setShowImportDialog(false)}
       />
+
+      {editingStock && (
+        <EditStockDialog
+          open={!!editingSecid}
+          name={editingStock.name}
+          code={editingStock.secid.split('.')[1] || editingStock.secid}
+          assetType={editingStock.asset_type}
+          quantity={editQuantity}
+          costPrice={editCostPrice}
+          submitting={editSubmitting}
+          error={editDialogError}
+          onQuantityChange={setEditQuantity}
+          onCostPriceChange={setEditCostPrice}
+          onSubmit={handleSaveEdit}
+          onClose={closeEditDialog}
+        />
+      )}
 
       <AddStockDialog
         open={showAddDialog}

@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react';
-import { assetTypeLabel, assetTypeTagClass, type AssetType } from '../../lib/assetType';
+import { assetTypeTagClass, assetTypeTagLabel, type AssetType } from '../../lib/assetType';
 
 interface SearchResult {
   secid: string;
@@ -124,7 +124,7 @@ export function AddStockDialog({
                     <span className="s-dropdown-name">{r.name}</span>
                     <span className="s-dropdown-code">{r.code}</span>
                     <span className={`s-dropdown-tag ${assetTypeTagClass(r.asset_type)}`}>
-                      {assetTypeLabel(r.asset_type)}
+                      {assetTypeTagLabel(r.asset_type)}
                     </span>
                   </button>
                 ))}

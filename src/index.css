@@ -376,7 +376,7 @@ html:has(.s-app) #root {
 .s-table-scroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: auto;
   overscroll-behavior: contain;
 }
 
@@ -855,7 +855,9 @@ html:has(.s-app) #root {
 
 .s-table {
   width: 100%;
-  border-collapse: collapse;
+  min-width: 640px;
+  border-collapse: separate;
+  border-spacing: 0;
   table-layout: fixed;
 }
 
@@ -875,24 +877,26 @@ html:has(.s-app) #root {
 }
 
 .s-table td {
-  padding: 0 12px;
-  height: 40px;
+  padding: 10px 12px;
+  min-height: 44px;
+  height: auto;
   font-size: 13px;
   border-bottom: 1px solid #f2f2f2;
   vertical-align: middle;
 }
 
-.s-table tbody tr:last-child td {
-  border-bottom: none;
-}
 .s-table tbody tr:hover {
   background: #fafafa;
 }
 .s-table .s-tr-primary {
   background: #fafffe;
 }
-.s-table .s-tr-highlight {
+.s-table .s-tr-highlight td:not(.s-td-name) {
   animation: s-row-flash 1s ease-out;
+}
+
+.s-table .s-tr-highlight .s-td-name {
+  animation: s-row-flash-name 1s ease-out;
 }
 
 @keyframes s-row-flash {
@@ -904,13 +908,38 @@ html:has(.s-app) #root {
   }
 }
 
-/* 涨跌闪烁 */
-.s-table .s-tr-flash-up {
+@keyframes s-row-flash-name {
+  0% {
+    background: #fef9c3;
+  }
+  100% {
+    background: var(--bg);
+  }
+}
+
+/* 涨跌闪烁：动画加在单元格上，固定名称列单独处理背景 */
+.s-table .s-tr-flash-up td:not(.s-td-name) {
   animation: s-flash-up 1.5s ease-out;
 }
 
-.s-table .s-tr-flash-down {
+.s-table .s-tr-flash-down td:not(.s-td-name) {
   animation: s-flash-down 1.5s ease-out;
+}
+
+.s-table .s-tr-flash-up .s-td-name {
+  animation: s-flash-up-name 1.5s ease-out;
+}
+
+.s-table .s-tr-flash-down .s-td-name {
+  animation: s-flash-down-name 1.5s ease-out;
+}
+
+.s-table .s-tr-primary.s-tr-flash-up .s-td-name {
+  animation-name: s-flash-up-name-primary;
+}
+
+.s-table .s-tr-primary.s-tr-flash-down .s-td-name {
+  animation-name: s-flash-down-name-primary;
 }
 
 @keyframes s-flash-up {
@@ -931,16 +960,88 @@ html:has(.s-app) #root {
   }
 }
 
+@keyframes s-flash-up-name {
+  0% {
+    background: color-mix(in srgb, var(--up) 20%, var(--bg));
+  }
+  100% {
+    background: var(--bg);
+  }
+}
+
+@keyframes s-flash-down-name {
+  0% {
+    background: color-mix(in srgb, var(--down) 20%, var(--bg));
+  }
+  100% {
+    background: var(--bg);
+  }
+}
+
+@keyframes s-flash-up-name-primary {
+  0% {
+    background: color-mix(in srgb, var(--up) 20%, #fafffe);
+  }
+  100% {
+    background: #fafffe;
+  }
+}
+
+@keyframes s-flash-down-name-primary {
+  0% {
+    background: color-mix(in srgb, var(--down) 20%, #fafffe);
+  }
+  100% {
+    background: #fafffe;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .s-table .s-tr-highlight,
-  .s-table .s-tr-flash-up,
-  .s-table .s-tr-flash-down {
+  .s-table .s-tr-highlight td,
+  .s-table .s-tr-flash-up td,
+  .s-table .s-tr-flash-down td {
     animation: none;
   }
 }
 
+.s-table .s-th-name,
+.s-table .s-td-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--bg);
+  overflow: visible;
+}
+
+.s-table-scroll--h .s-th-name::after,
+.s-table-scroll--h .s-td-name::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: -1px;
+  width: 20px;
+  transform: translateX(100%);
+  pointer-events: none;
+  box-shadow: inset 10px 0 8px -8px rgba(0, 0, 0, 0.12);
+  transition: box-shadow 0.15s ease;
+}
+
+.s-table thead .s-th-name {
+  z-index: 3;
+  background: var(--bg2);
+}
+
+.s-table tbody tr:hover .s-td-name {
+  background: #fafafa;
+}
+
+.s-table .s-tr-primary .s-td-name {
+  background: #fafffe;
+}
+
 .s-table .s-th-name {
-  width: 160px;
+  width: 200px;
   text-align: left;
 }
 .s-table .s-th-num {
@@ -948,7 +1049,7 @@ html:has(.s-app) #root {
   text-align: right;
 }
 .s-table .s-th-action {
-  width: 36px;
+  width: 64px;
 }
 
 .s-td-action {
@@ -956,6 +1057,14 @@ html:has(.s-app) #root {
   padding: 0 6px;
 }
 
+.s-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.s-row-edit,
 .s-row-delete {
   width: 24px;
   height: 24px;
@@ -967,21 +1076,20 @@ html:has(.s-app) #root {
   background: transparent;
   color: var(--ink3);
   cursor: pointer;
-  opacity: 0;
   transition:
-    opacity 0.12s,
     color 0.12s,
     background 0.12s;
 }
 
+.s-row-edit svg,
 .s-row-delete svg {
   width: 14px;
   height: 14px;
 }
 
-.s-table tbody tr:hover .s-row-delete,
-.s-table tbody tr:focus-within .s-row-delete {
-  opacity: 1;
+.s-row-edit:hover {
+  color: var(--ink);
+  background: var(--bg2);
 }
 
 .s-row-delete:hover {
@@ -989,35 +1097,86 @@ html:has(.s-app) #root {
   background: color-mix(in srgb, var(--red) 10%, transparent);
 }
 
-.s-td-name {
-  color: var(--ink);
-  overflow: hidden;
-  max-width: 0;
-}
-
-.s-td-name-main {
+.s-edit-stock-meta {
   display: flex;
   align-items: center;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg2);
+}
+
+.s-edit-stock-name {
+  font-size: 13px;
   font-weight: 500;
-  line-height: 1.3;
+  color: var(--ink);
+}
+
+.s-edit-stock-code {
+  font-size: 12px;
+  color: var(--ink3);
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
+}
+
+.s-td-name {
+  color: var(--ink);
+  overflow: visible;
+  max-width: 0;
+  vertical-align: middle;
 }
 
 .s-td-name-text {
-  flex: 1;
-  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.s-td-name-sub {
+.s-td-name-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.s-td-name-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.s-td-name-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
   font-size: 11px;
   color: var(--ink3);
+}
+
+.s-td-name-code {
+  flex-shrink: 0;
+  font-family: 'SF Mono', 'Cascadia Code', 'Segoe UI Mono', ui-monospace, monospace;
+}
+
+.s-td-name-dot {
+  flex-shrink: 0;
+}
+
+.s-td-name-hold {
+  flex-shrink: 0;
+  color: var(--ink2);
+  font-weight: 500;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.3;
 }
 
 .s-td-num {
@@ -1078,6 +1237,10 @@ html:has(.s-app) #root {
   font-weight: 400;
   line-height: 1.3;
   opacity: 0.8;
+}
+
+.s-td-stacked div {
+  line-height: 1.35;
 }
 
 .s-empty {

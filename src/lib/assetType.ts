@@ -14,12 +14,25 @@ export function normalizeAssetType(raw: string): AssetType {
   }
 }
 
+/** 完整名称：悬停提示、导入预览等 */
 export function assetTypeLabel(raw: AssetType | string): string {
   switch (normalizeAssetType(raw)) {
     case 'otc_fund':
       return '场外基金';
     case 'listed_fund':
       return '场内基金';
+    default:
+      return '股票';
+  }
+}
+
+/** 标签窄位展示 */
+export function assetTypeTagLabel(raw: AssetType | string): string {
+  switch (normalizeAssetType(raw)) {
+    case 'otc_fund':
+      return '场外';
+    case 'listed_fund':
+      return '场内';
     default:
       return '股票';
   }
