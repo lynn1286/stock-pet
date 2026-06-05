@@ -16,15 +16,15 @@ jobs:
           - platform: macos-latest
             id: aarch64-apple-darwin
             args: --target aarch64-apple-darwin
-            bundle_root: src-tauri/target/aarch64-apple-darwin/release/bundle
+            artifact_paths: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           - platform: macos-latest
             id: x86_64-apple-darwin
             args: --target x86_64-apple-darwin
-            bundle_root: src-tauri/target/x86_64-apple-darwin/release/bundle
+            artifact_paths: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg/*.dmg
           - platform: windows-latest
             id: x86_64-pc-windows-msvc
             args: ''
-            bundle_root: src-tauri/target/release/bundle
+            artifact_paths: src-tauri/target/release/bundle/nsis/*.exe
 
     runs-on: ${{ matrix.platform }}
 
@@ -55,54 +55,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Prepare build config
-        shell: bash
-        run: |
-          if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
-            echo "TAURI_SIGNING_PRIVATE_KEY 未配置，跳过 updater 签名产物"
-            jq '.bundle.createUpdaterArtifacts = false' src-tauri/tauri.conf.json > src-tauri/tauri.ci.json
-            echo "BUILD_ARGS=${{ matrix.args }} --config src-tauri/tauri.ci.json" >> "$GITHUB_ENV"
-          else
-            echo "BUILD_ARGS=${{ matrix.args }}" >> "$GITHUB_ENV"
-          fi
-
       - name: Build
         uses: tauri-apps/tauri-action@v0
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         with:
-          args: ${{ env.BUILD_ARGS }}
+          args: ${{ matrix.args }}
           tauriScript: pnpm tauri
-
-      - name: Rename macOS updater bundles
-        if: matrix.platform == 'macos-latest'
-        shell: bash
-        run: |
-          MACOS_DIR="${{ matrix.bundle_root }}/macos"
-          if [ ! -d "$MACOS_DIR" ]; then
-            exit 0
-          fi
-          cd "$MACOS_DIR"
-          for archive in *.app.tar.gz; do
-            [ -f "$archive" ] || continue
-            prefix="${{ matrix.id }}-${archive}"
-            mv "$archive" "$prefix"
-            if [ -f "${archive}.sig" ]; then
-              mv "${archive}.sig" "${prefix}.sig"
-            fi
-          done
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.id }}
-          path: |
-            ${{ matrix.bundle_root }}/dmg/*.dmg
-            ${{ matrix.bundle_root }}/macos/*.app.tar.gz
-            ${{ matrix.bundle_root }}/macos/*.app.tar.gz.sig
-            ${{ matrix.bundle_root }}/nsis/*.exe
-            ${{ matrix.bundle_root }}/nsis/*.exe.sig
+          path: ${{ matrix.artifact_paths }}
 
   release:
     needs: build
@@ -116,9 +79,6 @@ jobs:
           path: bundles
           pattern: release-*
           merge-multiple: true
-
-      - name: Generate latest.json
-        run: python3 .github/scripts/generate-latest-json.py
 
       - name: Read app version
         id: version
