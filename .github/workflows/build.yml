@@ -16,12 +16,15 @@ jobs:
           - platform: macos-latest
             id: aarch64-apple-darwin
             args: --target aarch64-apple-darwin
+            bundle_root: src-tauri/target/aarch64-apple-darwin/release/bundle
           - platform: macos-latest
             id: x86_64-apple-darwin
             args: --target x86_64-apple-darwin
+            bundle_root: src-tauri/target/x86_64-apple-darwin/release/bundle
           - platform: windows-latest
             id: x86_64-pc-windows-msvc
             args: ''
+            bundle_root: src-tauri/target/release/bundle
 
     runs-on: ${{ matrix.platform }}
 
@@ -52,19 +55,80 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 将 ~/.tauri/stock-pet.key 内容写入仓库 Secret：TAURI_SIGNING_PRIVATE_KEY
-      - name: Build and publish release
+      - name: Prepare build config
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" ]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY 未配置，跳过 updater 签名产物"
+            jq '.bundle.createUpdaterArtifacts = false' src-tauri/tauri.conf.json > src-tauri/tauri.ci.json
+            echo "BUILD_ARGS=${{ matrix.args }} --config src-tauri/tauri.ci.json" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_ARGS=${{ matrix.args }}" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
         with:
-          tagName: v__VERSION__
-          releaseName: 会盯盘的桌宠 v__VERSION__
-          releaseBody: 会盯盘的桌宠 v__VERSION__
+          args: ${{ env.BUILD_ARGS }}
+          tauriScript: pnpm tauri
+
+      - name: Rename macOS updater bundles
+        if: matrix.platform == 'macos-latest'
+        shell: bash
+        run: |
+          MACOS_DIR="${{ matrix.bundle_root }}/macos"
+          if [ ! -d "$MACOS_DIR" ]; then
+            exit 0
+          fi
+          cd "$MACOS_DIR"
+          for archive in *.app.tar.gz; do
+            [ -f "$archive" ] || continue
+            prefix="${{ matrix.id }}-${archive}"
+            mv "$archive" "$prefix"
+            if [ -f "${archive}.sig" ]; then
+              mv "${archive}.sig" "${prefix}.sig"
+            fi
+          done
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.id }}
+          path: |
+            ${{ matrix.bundle_root }}/dmg/*.dmg
+            ${{ matrix.bundle_root }}/macos/*
+            ${{ matrix.bundle_root }}/nsis/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: bundles
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Generate latest.json
+        run: python3 .github/scripts/generate-latest-json.py
+
+      - name: Read app version
+        id: version
+        run: echo "version=$(jq -r .version src-tauri/tauri.conf.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: 会盯盘的桌宠 v${{ steps.version.outputs.version }}
+          body: 会盯盘的桌宠 v${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
-          includeUpdaterJson: true
-          updaterJsonPreferNsis: true
-          tauriScript: pnpm tauri
-          args: ${{ matrix.args }}
+          files: bundles/**/*
+          fail_on_unmatched_files: true
