@@ -1,5 +1,6 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useLayoutEffect } from 'react';
 import { assetTypeTagClass, assetTypeTagLabel, type AssetType } from '../../lib/assetType';
+import { onDialogMouseDown } from '../../lib/dialogClick';
 
 interface SearchResult {
   secid: string;
@@ -50,27 +51,26 @@ export function AddStockDialog({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // 同步 open 状态到 dialog
-  useEffect(() => {
-    if (!dialogRef.current) return;
-    if (open && !dialogRef.current.open) {
-      dialogRef.current.showModal();
-      // showModal 后聚焦搜索框
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      dialog.showModal();
       requestAnimationFrame(() => {
         searchInputRef.current?.focus();
       });
-    } else if (!open && dialogRef.current.open) {
-      dialogRef.current.close();
+    } else if (!open && dialog.open) {
+      dialog.close();
     }
   }, [open]);
 
-  function handleDialogClose() {
-    onClose();
+  function requestClose() {
+    dialogRef.current?.close();
   }
 
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) {
-      onClose();
+      requestClose();
     }
   }
 
@@ -78,12 +78,17 @@ export function AddStockDialog({
     <dialog
       ref={dialogRef}
       className="s-dialog"
-      onClose={handleDialogClose}
+      onClose={onClose}
       onClick={handleBackdropClick}
     >
       <div className="s-dialog-header">
         <span className="s-dialog-title">添加持仓</span>
-        <button className="s-dialog-close" onClick={onClose} aria-label="关闭">
+        <button
+          type="button"
+          className="s-dialog-close"
+          onMouseDown={(e) => onDialogMouseDown(e, requestClose)}
+          aria-label="关闭"
+        >
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -177,7 +182,11 @@ export function AddStockDialog({
 
       <div className="s-dialog-footer">
         {error && <span className="s-dialog-error">{error}</span>}
-        <button className="s-dialog-cancel" onClick={onClose}>
+        <button
+          type="button"
+          className="s-dialog-cancel"
+          onMouseDown={(e) => onDialogMouseDown(e, requestClose)}
+        >
           取消
         </button>
         <button className="s-dialog-submit" onClick={onSubmit} disabled={submitting || !canSubmit}>

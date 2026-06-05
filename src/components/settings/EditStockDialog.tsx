@@ -1,5 +1,6 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useLayoutEffect } from 'react';
 import { assetTypeTagClass, assetTypeTagLabel, type AssetType } from '../../lib/assetType';
+import { onDialogMouseDown } from '../../lib/dialogClick';
 
 interface EditStockDialogProps {
   open: boolean;
@@ -33,22 +34,27 @@ export function EditStockDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const quantityRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    if (!dialogRef.current) return;
-    if (open && !dialogRef.current.open) {
-      dialogRef.current.showModal();
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      dialog.showModal();
       requestAnimationFrame(() => {
         quantityRef.current?.focus();
         quantityRef.current?.select();
       });
-    } else if (!open && dialogRef.current.open) {
-      dialogRef.current.close();
+    } else if (!open && dialog.open) {
+      dialog.close();
     }
   }, [open]);
 
+  function requestClose() {
+    dialogRef.current?.close();
+  }
+
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) {
-      onClose();
+      requestClose();
     }
   }
 
@@ -56,7 +62,12 @@ export function EditStockDialog({
     <dialog ref={dialogRef} className="s-dialog" onClose={onClose} onClick={handleBackdropClick}>
       <div className="s-dialog-header">
         <span className="s-dialog-title">编辑持仓</span>
-        <button className="s-dialog-close" onClick={onClose} aria-label="关闭">
+        <button
+          type="button"
+          className="s-dialog-close"
+          onMouseDown={(e) => onDialogMouseDown(e, requestClose)}
+          aria-label="关闭"
+        >
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -115,7 +126,11 @@ export function EditStockDialog({
 
       <div className="s-dialog-footer">
         {error && <span className="s-dialog-error">{error}</span>}
-        <button type="button" className="s-dialog-cancel" onClick={onClose}>
+        <button
+          type="button"
+          className="s-dialog-cancel"
+          onMouseDown={(e) => onDialogMouseDown(e, requestClose)}
+        >
           取消
         </button>
         <button type="button" className="s-dialog-submit" onClick={onSubmit} disabled={submitting}>

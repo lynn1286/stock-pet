@@ -1,6 +1,7 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useLayoutEffect, useState, useCallback } from 'react';
 import { useImageImport, type PreviewRow } from '../../hooks/useImageImport';
 import { assetTypeLabel, type AssetType } from '../../lib/assetType';
+import { onDialogMouseDown } from '../../lib/dialogClick';
 
 type FetchPrice = (secid: string, assetType: AssetType) => Promise<number>;
 
@@ -60,7 +61,7 @@ export function ImageImportDialog({
     importAll,
   } = useImageImport();
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (open && !dialog.open) {
@@ -81,6 +82,10 @@ export function ImageImportDialog({
   function handleClose() {
     clearAll();
     onClose();
+  }
+
+  function requestClose() {
+    dialogRef.current?.close();
   }
 
   async function pickAndRecognize(files: File[]) {
@@ -152,7 +157,12 @@ export function ImageImportDialog({
     >
       <div className="s-dialog-header">
         <span className="s-dialog-title">图片导入持仓</span>
-        <button className="s-dialog-close" onClick={handleClose} aria-label="关闭">
+        <button
+          type="button"
+          className="s-dialog-close"
+          onMouseDown={(e) => onDialogMouseDown(e, requestClose)}
+          aria-label="关闭"
+        >
           <svg
             viewBox="0 0 24 24"
             fill="none"

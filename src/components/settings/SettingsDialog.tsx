@@ -1,5 +1,6 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useLayoutEffect, useState } from 'react';
 import { MockToggle } from '../../mock/MockToggle';
+import { onDialogMouseDown } from '../../lib/dialogClick';
 
 type DisplayMode = 'primary' | 'summary';
 type TrayDisplay = 'amount' | 'pct';
@@ -47,7 +48,7 @@ export function SettingsDialog({
   const [vModel, setVModel] = useState(visionConfig.model);
   const [visionSaved, setVisionSaved] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (open && !dialog.open) {
@@ -74,9 +75,13 @@ export function SettingsDialog({
 
   const primarySecid = stocks.find((s) => s.is_primary)?.secid ?? stocks[0]?.secid ?? '';
 
+  function requestClose() {
+    dialogRef.current?.close();
+  }
+
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) {
-      onClose();
+      requestClose();
     }
   }
 
@@ -84,7 +89,12 @@ export function SettingsDialog({
     <dialog ref={dialogRef} className="s-dialog" onClose={onClose} onClick={handleBackdropClick}>
       <div className="s-dialog-header">
         <span className="s-dialog-title">设置</span>
-        <button className="s-dialog-close" onClick={onClose} aria-label="关闭">
+        <button
+          type="button"
+          className="s-dialog-close"
+          onMouseDown={(e) => onDialogMouseDown(e, requestClose)}
+          aria-label="关闭"
+        >
           <svg
             viewBox="0 0 24 24"
             fill="none"
