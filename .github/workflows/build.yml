@@ -55,7 +55,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Prepare signing and build args
+      - name: Prepare build args
         shell: bash
         env:
           SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -63,20 +63,21 @@ jobs:
           set -euo pipefail
           BUILD_ARGS="${{ matrix.args }}"
           if [ -z "${SIGNING_KEY}" ]; then
+            echo "signing_enabled=false" >> "${GITHUB_OUTPUT}"
             echo "TAURI_SIGNING_PRIVATE_KEY 未配置，跳过 updater 签名产物"
             jq '.bundle.createUpdaterArtifacts = false' src-tauri/tauri.conf.json > src-tauri/tauri.ci.json
             BUILD_ARGS="${BUILD_ARGS} --config src-tauri/tauri.ci.json"
           else
-            KEY_FILE="${RUNNER_TEMP}/tauri-signing.key"
-            printf '%s' "${SIGNING_KEY}" > "${KEY_FILE}"
-            echo "TAURI_SIGNING_PRIVATE_KEY_PATH=${KEY_FILE}" >> "${GITHUB_ENV}"
-            # 当前密钥生成时未设密码，固定为空，避免误配 Secret 导致验签失败
-            echo "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=" >> "${GITHUB_ENV}"
+            echo "signing_enabled=true" >> "${GITHUB_OUTPUT}"
           fi
           echo "BUILD_ARGS=${BUILD_ARGS}" >> "${GITHUB_ENV}"
+        id: prepare
 
       - name: Build
         uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
         with:
           args: ${{ env.BUILD_ARGS }}
           tauriScript: pnpm tauri
@@ -126,13 +127,10 @@ jobs:
           fi
 
       - name: Verify updater signatures
+        if: steps.prepare.outputs.signing_enabled == 'true'
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "${TAURI_SIGNING_PRIVATE_KEY_PATH:-}" ]; then
-            echo "Signing disabled, skip updater verification"
-            exit 0
-          fi
           if [ "${{ matrix.platform }}" = "macos-latest" ]; then
             test -f "${{ matrix.bundle_root }}/macos/${{ matrix.id }}-update.app.tar.gz"
             test -f "${{ matrix.bundle_root }}/macos/${{ matrix.id }}-update.app.tar.gz.sig"
