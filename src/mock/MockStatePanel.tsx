@@ -11,13 +11,9 @@ interface MockStatePanelProps {
   standalone?: boolean;
 }
 
-function isPresetActive(
-  preset: (typeof MOCK_PRESETS)[number],
-  mock: MockState,
-): boolean {
+function isPresetActive(preset: (typeof MOCK_PRESETS)[number], mock: MockState): boolean {
   return (
-    preset.tradeStatus === mock.tradeStatus &&
-    Math.abs(preset.changePct - mock.changePct) < 0.05
+    preset.tradeStatus === mock.tradeStatus && Math.abs(preset.changePct - mock.changePct) < 0.05
   );
 }
 

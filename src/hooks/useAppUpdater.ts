@@ -13,9 +13,7 @@ export type UpdatePhase =
   | 'error';
 
 export const isUpdaterEnabled =
-  typeof window !== 'undefined' &&
-  import.meta.env.PROD &&
-  '__TAURI_INTERNALS__' in window;
+  typeof window !== 'undefined' && import.meta.env.PROD && '__TAURI_INTERNALS__' in window;
 
 function updateErrorMessage(e: unknown): string {
   if (e instanceof Error && e.message) {
@@ -100,7 +98,9 @@ export function useAppUpdater(options?: { autoCheck?: boolean }) {
     if (!isUpdaterEnabled) return;
     void getVersion().then(setCurrentVersion);
     if (options?.autoCheck) {
-      void checkForUpdate(true);
+      queueMicrotask(() => {
+        void checkForUpdate(true);
+      });
     }
   }, [checkForUpdate, options?.autoCheck]);
 

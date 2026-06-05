@@ -18,13 +18,13 @@
 
 ### 系统托盘
 
-| 操作 | 作用 |
-| ---- | ---- |
-| 左键单击托盘图标 | 显示 / 隐藏桌宠 |
-| 右键菜单 → 显示桌宠 | 显示桌宠 |
-| 右键菜单 → 隐藏桌宠 | 隐藏桌宠 |
-| 右键菜单 → 设置 | 打开持仓管理窗口 |
-| 右键菜单 → 退出 | 退出应用 |
+| 操作                | 作用             |
+| ------------------- | ---------------- |
+| 左键单击托盘图标    | 显示 / 隐藏桌宠  |
+| 右键菜单 → 显示桌宠 | 显示桌宠         |
+| 右键菜单 → 隐藏桌宠 | 隐藏桌宠         |
+| 右键菜单 → 设置     | 打开持仓管理窗口 |
+| 右键菜单 → 退出     | 退出应用         |
 
 托盘图标旁可显示主股当日收益（金额或收益率，可在设置中切换）。
 
@@ -42,11 +42,11 @@
 
 ## 安装
 
-| 系统 | 芯片 | 下载文件 |
-| ---- | ---- | -------- |
-| macOS | Apple Silicon（M 系列） | `会盯盘的桌宠_{version}_aarch64.dmg` |
-| macOS | Intel | `会盯盘的桌宠_{version}_x64.dmg` |
-| Windows | x64 | `会盯盘的桌宠_{version}_x64-setup.exe` |
+| 系统    | 芯片                    | 下载文件                               |
+| ------- | ----------------------- | -------------------------------------- |
+| macOS   | Apple Silicon（M 系列） | `会盯盘的桌宠_{version}_aarch64.dmg`   |
+| macOS   | Intel                   | `会盯盘的桌宠_{version}_x64.dmg`       |
+| Windows | x64                     | `会盯盘的桌宠_{version}_x64-setup.exe` |
 
 不确定 Mac 芯片类型：菜单栏 → 关于本机 → 芯片，显示 Apple 为 Apple Silicon，显示 Intel 为 Intel 版。
 
@@ -66,9 +66,9 @@ xattr -dr com.apple.quarantine "/Applications/会盯盘的桌宠.app"
 
 持仓与偏好保存在本机 `config.json`，不上传云端：
 
-| 平台 | 路径 |
-| ---- | ---- |
-| macOS | `~/Library/Application Support/stock-pet/config.json` |
+| 平台    | 路径                                                      |
+| ------- | --------------------------------------------------------- |
+| macOS   | `~/Library/Application Support/stock-pet/config.json`     |
 | Windows | `C:\Users\<用户名>\AppData\Roaming\stock-pet\config.json` |
 
 ## 开发
@@ -101,12 +101,12 @@ pnpm format         # 格式化
 
 ## 技术栈
 
-| 层 | 技术 |
-| -- | ---- |
-| 桌面框架 | Tauri 2 |
-| 前端 | React 19 + TypeScript + Vite 8 |
-| 样式 | Tailwind CSS 4 |
-| 后端 | Rust（Tokio + Reqwest） |
+| 层       | 技术                           |
+| -------- | ------------------------------ |
+| 桌面框架 | Tauri 2                        |
+| 前端     | React 19 + TypeScript + Vite 8 |
+| 样式     | Tailwind CSS 4                 |
+| 后端     | Rust（Tokio + Reqwest）        |
 
 ## 许可
 

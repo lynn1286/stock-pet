@@ -52,7 +52,6 @@ export function SettingsPage() {
   }
 
   const primaryStock = useMemo(() => config?.stocks.find((s) => s.is_primary), [config]);
-  const existingSecids = useMemo(() => new Set(config?.stocks.map((s) => s.secid) ?? []), [config]);
 
   async function handleImported(
     summary: {
@@ -232,41 +231,41 @@ export function SettingsPage() {
 
         <div ref={tableScrollRef} className="s-table-scroll" onScroll={syncNameColShadow}>
           <table className="s-table">
-          <thead>
-            <tr>
-              <th className="s-th-name">名称</th>
-              <th className="s-th-num">份额</th>
-              <th className="s-th-num s-th-stacked">现价/成本</th>
-              <th className="s-th-num">当日收益</th>
-              <th className="s-th-num">盈亏</th>
-              <th className="s-th-action" aria-label="操作"></th>
-            </tr>
-          </thead>
-          {config.stocks.length === 0 ? (
-            <tbody>
+            <thead>
               <tr>
-                <td colSpan={6}>
-                  <EmptyState onAdd={() => setShowAddDialog(true)} />
-                </td>
+                <th className="s-th-name">名称</th>
+                <th className="s-th-num">份额</th>
+                <th className="s-th-num s-th-stacked">现价/成本</th>
+                <th className="s-th-num">当日收益</th>
+                <th className="s-th-num">盈亏</th>
+                <th className="s-th-action" aria-label="操作"></th>
               </tr>
-            </tbody>
-          ) : (
-            <tbody>
-              {config.stocks.map((stock) => (
-                <StockRow
-                  key={stock.secid}
-                  stock={stock}
-                  live={liveStocks.get(stock.secid)}
-                  isHighlighted={newlyAdded === stock.secid}
-                  displayMode={config.display_mode}
-                  flash={flashMap.get(stock.secid)}
-                  onEdit={openEditDialog}
-                  onDelete={handleDelete}
-                />
-              ))}
-            </tbody>
-          )}
-        </table>
+            </thead>
+            {config.stocks.length === 0 ? (
+              <tbody>
+                <tr>
+                  <td colSpan={6}>
+                    <EmptyState onAdd={() => setShowAddDialog(true)} />
+                  </td>
+                </tr>
+              </tbody>
+            ) : (
+              <tbody>
+                {config.stocks.map((stock) => (
+                  <StockRow
+                    key={stock.secid}
+                    stock={stock}
+                    live={liveStocks.get(stock.secid)}
+                    isHighlighted={newlyAdded === stock.secid}
+                    displayMode={config.display_mode}
+                    flash={flashMap.get(stock.secid)}
+                    onEdit={openEditDialog}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </tbody>
+            )}
+          </table>
         </div>
       </div>
 
@@ -288,7 +287,6 @@ export function SettingsPage() {
         visionConfigured={
           !!config.vision.base_url && !!config.vision.api_key && !!config.vision.model
         }
-        existingSecids={existingSecids}
         fetchPrice={fetchPrice}
         onOpenSettings={() => {
           setShowImportDialog(false);

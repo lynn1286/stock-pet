@@ -8,7 +8,6 @@ type FetchPrice = (secid: string, assetType: AssetType) => Promise<number>;
 interface ImageImportDialogProps {
   open: boolean;
   visionConfigured: boolean;
-  existingSecids: Set<string>;
   fetchPrice: FetchPrice;
   onOpenSettings: () => void;
   onImported: (summary: {
@@ -42,7 +41,6 @@ function rowNeedsConfirm(row: PreviewRow): boolean {
 export function ImageImportDialog({
   open,
   visionConfigured,
-  existingSecids,
   fetchPrice,
   onOpenSettings,
   onImported,
@@ -101,10 +99,7 @@ export function ImageImportDialog({
     );
     setImages(picked);
     setError('');
-    await recognize(
-      picked.map((p) => p.url),
-      existingSecids,
-    );
+    await recognize(picked.map((p) => p.url));
   }
 
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
@@ -132,10 +127,7 @@ export function ImageImportDialog({
 
   async function handleRetryRecognize() {
     if (images.length === 0) return;
-    await recognize(
-      images.map((img) => img.url),
-      existingSecids,
-    );
+    await recognize(images.map((img) => img.url));
   }
 
   async function handleImport() {
@@ -148,10 +140,7 @@ export function ImageImportDialog({
   const importable = rows.filter((r) => r.matchedSecid && r.marketValue > 0).length;
   const busy = status === 'recognizing' || status === 'importing';
   const showFooter =
-    !!error ||
-    status === 'importing' ||
-    status === 'preview' ||
-    (error && images.length > 0);
+    !!error || status === 'importing' || status === 'preview' || (error && images.length > 0);
 
   return (
     <dialog
@@ -284,27 +273,27 @@ export function ImageImportDialog({
       </div>
 
       {showFooter && (
-      <div className="s-dialog-footer">
-        {error && <span className="s-dialog-error">{error}</span>}
-        {status === 'importing' && <span className="s-import-status">导入中…</span>}
-        {status === 'preview' || status === 'importing' ? (
-          <button
-            className="s-dialog-submit"
-            onClick={handleImport}
-            disabled={busy || importable === 0}
-          >
-            导入 {importable} 条
-          </button>
-        ) : error && images.length > 0 ? (
-          <button
-            className="s-dialog-submit"
-            onClick={handleRetryRecognize}
-            disabled={busy || !visionConfigured}
-          >
-            重试
-          </button>
-        ) : null}
-      </div>
+        <div className="s-dialog-footer">
+          {error && <span className="s-dialog-error">{error}</span>}
+          {status === 'importing' && <span className="s-import-status">导入中…</span>}
+          {status === 'preview' || status === 'importing' ? (
+            <button
+              className="s-dialog-submit"
+              onClick={handleImport}
+              disabled={busy || importable === 0}
+            >
+              导入 {importable} 条
+            </button>
+          ) : error && images.length > 0 ? (
+            <button
+              className="s-dialog-submit"
+              onClick={handleRetryRecognize}
+              disabled={busy || !visionConfigured}
+            >
+              重试
+            </button>
+          ) : null}
+        </div>
       )}
     </dialog>
   );

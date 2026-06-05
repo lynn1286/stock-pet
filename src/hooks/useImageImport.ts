@@ -61,7 +61,7 @@ export function useImageImport() {
     setError('');
   }, []);
 
-  const recognize = useCallback(async (dataUrls: string[], _existingSecids: Set<string>) => {
+  const recognize = useCallback(async (dataUrls: string[]) => {
     setError('');
     setStatus('recognizing');
     try {

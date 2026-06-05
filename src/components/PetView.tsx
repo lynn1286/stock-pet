@@ -147,17 +147,25 @@ export interface PetViewProps {
   onPointerDown?: (e: React.PointerEvent) => void;
 }
 
+function useStablePct(raw: number): number {
+  const [pct, setPct] = useState(raw);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setPct((prev) => stabilizePct(raw, prev));
+    });
+  }, [raw]);
+
+  return pct;
+}
+
 export default function PetView({
   tradeStatus,
   changePct,
   className = 'pet-shell',
   onPointerDown,
 }: PetViewProps) {
-  const [pct, setPct] = useState(changePct);
-
-  useEffect(() => {
-    setPct((prev) => stabilizePct(changePct, prev));
-  }, [changePct]);
+  const pct = useStablePct(changePct);
 
   const currentAnim =
     tradeStatus === 'sleep'

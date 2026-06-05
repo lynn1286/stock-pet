@@ -1,4 +1,4 @@
-import { useUpdater } from '../../context/UpdaterContext';
+import { useUpdater } from '../../hooks/useUpdater';
 
 const RING_RADIUS = 12;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -33,21 +33,12 @@ export function UpdateBadge() {
       className={`s-update-badge${isUpdating ? ' s-update-badge--progress' : ''}`}
       onClick={handleClick}
       disabled={isUpdating}
-      aria-label={
-        isUpdating
-          ? `正在更新 ${progress}%`
-          : `有新版本 v${availableVersion}，点击更新`
-      }
+      aria-label={isUpdating ? `正在更新 ${progress}%` : `有新版本 v${availableVersion}，点击更新`}
       title={isUpdating ? `更新中 ${progress}%` : `有新版本 v${availableVersion}`}
     >
       {isUpdating ? (
         <svg className="s-update-badge-ring" viewBox="0 0 28 28" aria-hidden>
-          <circle
-            className="s-update-badge-ring-track"
-            cx="14"
-            cy="14"
-            r={RING_RADIUS}
-          />
+          <circle className="s-update-badge-ring-track" cx="14" cy="14" r={RING_RADIUS} />
           <circle
             className="s-update-badge-ring-progress"
             cx="14"

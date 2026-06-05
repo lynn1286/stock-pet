@@ -1,7 +1,7 @@
 import { useRef, useLayoutEffect, useState } from 'react';
 import { MockToggle } from '../../mock/MockToggle';
 import { onDialogMouseDown } from '../../lib/dialogClick';
-import { useUpdater } from '../../context/UpdaterContext';
+import { useUpdater } from '../../hooks/useUpdater';
 
 type DisplayMode = 'primary' | 'summary';
 type TrayDisplay = 'amount' | 'pct';
@@ -236,9 +236,7 @@ export function SettingsDialog({
                   {updater.currentVersion ? `v${updater.currentVersion}` : '…'}
                 </span>
               </div>
-              {updater.phase === 'uptodate' && (
-                <p className="s-setting-tip">已是最新版本</p>
-              )}
+              {updater.phase === 'uptodate' && <p className="s-setting-tip">已是最新版本</p>}
               {updater.phase === 'error' && (
                 <p className="s-setting-tip s-update-tip--error">{updater.error}</p>
               )}
