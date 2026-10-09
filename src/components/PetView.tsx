@@ -1,41 +1,11 @@
 import { useEffect, useState } from 'react';
+import { PetX } from '@petx/react';
+import '@petx/react/styles.css';
 import type { TradeStatus } from '../types/pet';
+import type { ActivePetPackage } from '../types/petPackage';
+import { animationFromPetState } from '../utils/petState';
 
-import dog01 from '../assets/01.png';
-import dog02 from '../assets/02.png';
-import dog03 from '../assets/03.png';
-import dog04 from '../assets/04.png';
-import dog05 from '../assets/05.png';
-import dog06 from '../assets/06.png';
-import dog07 from '../assets/07.png';
-import dog08 from '../assets/08.png';
-import dog09 from '../assets/09.png';
-import dog10 from '../assets/010.png';
-
-const SPRITES = [dog01, dog02, dog03, dog04, dog05, dog06, dog07, dog08, dog09, dog10];
-
-function spriteIndexFromPct(pct: number): number {
-  if (Math.abs(pct) >= 9) return 6;
-  if (pct >= 3) return 0;
-  if (pct >= 1) return 1;
-  if (pct > -1) return 2;
-  if (pct > -3) return 3;
-  if (pct > -5) return 4;
-  return 5;
-}
-
-function animFromPct(pct: number): string {
-  if (pct >= 9) return 'anim-euphoria';
-  if (pct >= 3) return 'anim-big-up';
-  if (pct >= 1) return 'anim-small-up';
-  if (pct > -1) return 'anim-flat';
-  if (pct > -3) return 'anim-small-down';
-  if (pct > -5) return 'anim-big-down';
-  if (pct > -9) return 'anim-crash';
-  return 'anim-wild';
-}
-
-// 情绪分档边界（与 sprite / 动画共用）。在边界附近加滞回，
+// 情绪分档边界。在边界附近加滞回，
 // 避免涨跌幅在阈值上下抖动时，桌宠情绪反复横跳。
 const EMO_BOUNDS = [-9, -5, -3, -1, 1, 3, 9];
 const EMO_MARGIN = 0.15;
@@ -121,21 +91,26 @@ function altTextFor(tradeStatus: TradeStatus, pct: number): string {
   return `桌宠状态：暴跌 ${pct.toFixed(1)}%`;
 }
 
-function DogSprite({ tradeStatus, changePct }: { tradeStatus: TradeStatus; changePct: number }) {
-  let index: number;
-  if (tradeStatus === 'sleep') {
-    index = 7;
-  } else if (tradeStatus === 'rest') {
-    index = 9;
-  } else {
-    index = spriteIndexFromPct(changePct);
-  }
+function PetSprite({
+  tradeStatus,
+  changePct,
+  petPackage,
+  size,
+}: {
+  tradeStatus: TradeStatus;
+  changePct: number;
+  petPackage?: ActivePetPackage | null;
+  size: number;
+}) {
+  if (!petPackage) return null;
   return (
-    <img
-      src={SPRITES[index]}
-      alt={altTextFor(tradeStatus, changePct)}
-      draggable={false}
-      style={{ display: 'block', pointerEvents: 'none' }}
+    <PetX
+      src={petPackage.spritesheetDataUrl}
+      pet={petPackage.manifest}
+      animation={animationFromPetState(tradeStatus, changePct)}
+      size={size}
+      title={altTextFor(tradeStatus, changePct)}
+      className="stock-pet-codex"
     />
   );
 }
@@ -143,6 +118,8 @@ function DogSprite({ tradeStatus, changePct }: { tradeStatus: TradeStatus; chang
 export interface PetViewProps {
   tradeStatus: TradeStatus;
   changePct: number;
+  petPackage?: ActivePetPackage | null;
+  size?: number;
   className?: string;
   onPointerDown?: (e: React.PointerEvent) => void;
 }
@@ -162,23 +139,18 @@ function useStablePct(raw: number): number {
 export default function PetView({
   tradeStatus,
   changePct,
-  className = 'pet-shell',
+  petPackage,
+  size = 104,
+  className = 'pet-stage',
   onPointerDown,
 }: PetViewProps) {
   const pct = useStablePct(changePct);
 
-  const currentAnim =
-    tradeStatus === 'sleep'
-      ? 'anim-sleep'
-      : tradeStatus === 'rest'
-        ? 'anim-idle'
-        : animFromPct(pct);
-
   return (
     <div className={className} onPointerDown={onPointerDown}>
       <Particles pct={pct} />
-      <div className={`pet-avatar ${currentAnim}`}>
-        <DogSprite tradeStatus={tradeStatus} changePct={pct} />
+      <div className="pet-avatar">
+        <PetSprite tradeStatus={tradeStatus} changePct={pct} petPackage={petPackage} size={size} />
       </div>
     </div>
   );

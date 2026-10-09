@@ -15,8 +15,8 @@
     "windows": [
       {
         "title": "会盯盘的桌宠",
-        "width": 100,
-        "height": 100,
+        "width": 168,
+        "height": 168,
         "resizable": false,
         "fullscreen": false,
         "decorations": false,

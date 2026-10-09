@@ -1,7 +1,10 @@
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use chrono::{Datelike, Local, NaiveDate, Timelike, Weekday};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::io::{Cursor, Read};
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -150,6 +153,18 @@ pub struct AppConfig {
     pub privacy_mode: PrivacyMode,
     #[serde(default)]
     pub vision: VisionConfig,
+    #[serde(default = "default_pet_id")]
+    pub selected_pet_id: String,
+    #[serde(default = "default_pet_size")]
+    pub pet_size: u16,
+}
+
+fn default_pet_id() -> String {
+    "golden-retriever".to_string()
+}
+
+fn default_pet_size() -> u16 {
+    104
 }
 
 impl Default for AppConfig {
@@ -160,8 +175,45 @@ impl Default for AppConfig {
             tray_display: TrayDisplay::Pct,
             privacy_mode: PrivacyMode::None,
             vision: VisionConfig::default(),
+            selected_pet_id: default_pet_id(),
+            pet_size: default_pet_size(),
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PetManifest {
+    #[serde(default)]
+    pub id: String,
+    #[serde(default)]
+    pub display_name: String,
+    #[serde(default)]
+    pub description: String,
+    #[serde(default)]
+    pub sprite_version_number: Option<u8>,
+    #[serde(default = "default_spritesheet_path")]
+    pub spritesheet_path: String,
+}
+
+fn default_spritesheet_path() -> String {
+    "spritesheet.webp".to_string()
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PetPackageSummary {
+    pub id: String,
+    pub display_name: String,
+    pub description: String,
+    pub sprite_version_number: u8,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ActivePetPackage {
+    pub manifest: PetManifest,
+    pub spritesheet_data_url: String,
 }
 
 struct AppState {
@@ -170,6 +222,7 @@ struct AppState {
     /// 当日 22:00 晚间净值是否已拉取
     evening_fetch_date: Mutex<Option<NaiveDate>>,
     mock_state: Mutex<MockState>,
+    pet_visibility_item: Mutex<Option<MenuItem<tauri::Wry>>>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Default)]
@@ -223,6 +276,10 @@ fn migrate_config_types(config: &mut AppConfig) -> bool {
             changed = true;
         }
     }
+    if config.selected_pet_id == "builtin-golden" {
+        config.selected_pet_id = default_pet_id();
+        changed = true;
+    }
     if changed {
         save_config(config);
     }
@@ -248,6 +305,507 @@ fn save_config(config: &AppConfig) {
     if let Ok(content) = serde_json::to_string_pretty(config) {
         std::fs::write(path, content).ok();
     }
+}
+
+// ========== 桌宠角色包 ==========
+
+const MAX_PET_ARCHIVE_BYTES: usize = 24 * 1024 * 1024;
+const MAX_PET_MANIFEST_BYTES: usize = 64 * 1024;
+const MAX_PET_SPRITESHEET_BYTES: usize = 20 * 1024 * 1024;
+const DEFAULT_PET_ARCHIVE: &[u8] = include_bytes!("../../pet-packages/golden-retriever.zip");
+
+fn get_pets_dir() -> PathBuf {
+    let dir = get_config_path()
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("pets");
+    std::fs::create_dir_all(&dir).ok();
+    dir
+}
+
+fn ensure_default_pet_package() -> Result<(), String> {
+    let dir = get_pets_dir().join(default_pet_id());
+    if read_pet_manifest(&dir).is_ok() {
+        return Ok(());
+    }
+    let package = parse_pet_archive(DEFAULT_PET_ARCHIVE.to_vec())?;
+    if package.manifest.id != default_pet_id() {
+        return Err("内置角色包 id 不匹配".to_string());
+    }
+    std::fs::create_dir_all(&dir).map_err(|e| format!("创建默认角色目录失败: {e}"))?;
+    std::fs::write(
+        dir.join(&package.manifest.spritesheet_path),
+        package.sprite_bytes,
+    )
+    .map_err(|e| format!("写入默认角色图集失败: {e}"))?;
+    std::fs::write(dir.join("pet.json"), package.manifest_bytes)
+        .map_err(|e| format!("写入默认角色清单失败: {e}"))?;
+    Ok(())
+}
+
+fn validate_pet_id(id: &str) -> Result<(), String> {
+    let valid = !id.is_empty()
+        && id.len() <= 64
+        && id
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_');
+    if valid {
+        Ok(())
+    } else {
+        Err("角色包 id 只能包含小写字母、数字、连字符和下划线，且不超过 64 个字符".to_string())
+    }
+}
+
+fn validate_pet_manifest(manifest: &PetManifest) -> Result<(), String> {
+    validate_pet_id(&manifest.id)?;
+    if manifest.display_name.trim().is_empty() || manifest.display_name.chars().count() > 80 {
+        return Err("角色包名称不能为空且不能超过 80 个字符".to_string());
+    }
+    if !matches!(manifest.sprite_version_number.unwrap_or(1), 1 | 2) {
+        return Err("仅支持 Codex 桌宠格式 v1 或 v2".to_string());
+    }
+    let sprite_path = Path::new(&manifest.spritesheet_path);
+    if sprite_path.is_absolute()
+        || sprite_path.components().count() != 1
+        || !matches!(
+            sprite_path
+                .extension()
+                .and_then(|v| v.to_str())
+                .map(str::to_ascii_lowercase)
+                .as_deref(),
+            Some("webp") | Some("png")
+        )
+    {
+        return Err("spritesheetPath 必须指向角色包根目录下的 WebP 或 PNG 文件".to_string());
+    }
+    Ok(())
+}
+
+fn read_pet_manifest(dir: &Path) -> Result<PetManifest, String> {
+    let bytes = std::fs::read(dir.join("pet.json")).map_err(|_| "缺少 pet.json".to_string())?;
+    if bytes.len() > MAX_PET_MANIFEST_BYTES {
+        return Err("pet.json 过大".to_string());
+    }
+    let mut manifest: PetManifest =
+        serde_json::from_slice(&bytes).map_err(|e| format!("pet.json 格式错误: {e}"))?;
+    if manifest.id.trim().is_empty() {
+        manifest.id = dir
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| "无法从目录名读取桌宠 id".to_string())?
+            .to_string();
+    }
+    if manifest.display_name.trim().is_empty() {
+        manifest.display_name = manifest.id.clone();
+    }
+    validate_pet_manifest(&manifest)?;
+    if !dir.join(&manifest.spritesheet_path).is_file() {
+        return Err("角色包缺少 spritesheet 文件".to_string());
+    }
+    Ok(manifest)
+}
+
+fn pet_summary(manifest: &PetManifest) -> PetPackageSummary {
+    PetPackageSummary {
+        id: manifest.id.clone(),
+        display_name: manifest.display_name.clone(),
+        description: manifest.description.clone(),
+        sprite_version_number: manifest.sprite_version_number.unwrap_or(1),
+    }
+}
+
+#[tauri::command]
+fn list_pet_packages() -> Vec<PetPackageSummary> {
+    let mut pets = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(get_pets_dir()) {
+        for entry in entries.flatten() {
+            let dir = entry.path();
+            if !dir.is_dir() {
+                continue;
+            }
+            if let Ok(manifest) = read_pet_manifest(&dir) {
+                pets.push(pet_summary(&manifest));
+            }
+        }
+    }
+    pets.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+    pets
+}
+
+fn find_archive_entry(
+    archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>,
+    suffix: &str,
+) -> Option<usize> {
+    (0..archive.len()).find(|index| {
+        archive
+            .by_index(*index)
+            .ok()
+            .map(|entry| {
+                let name = entry.name().replace('\\', "/");
+                name == suffix || name.ends_with(&format!("/{suffix}"))
+            })
+            .unwrap_or(false)
+    })
+}
+
+fn read_archive_entry(
+    archive: &mut zip::ZipArchive<Cursor<Vec<u8>>>,
+    index: usize,
+    max_size: usize,
+) -> Result<Vec<u8>, String> {
+    let entry = archive
+        .by_index(index)
+        .map_err(|e| format!("读取压缩包失败: {e}"))?;
+    if entry.size() as usize > max_size {
+        return Err("角色包中的文件过大".to_string());
+    }
+    let mut bytes = Vec::with_capacity(entry.size() as usize);
+    entry
+        .take((max_size + 1) as u64)
+        .read_to_end(&mut bytes)
+        .map_err(|e| format!("读取压缩包失败: {e}"))?;
+    if bytes.len() > max_size {
+        return Err("角色包中的文件过大".to_string());
+    }
+    Ok(bytes)
+}
+
+fn looks_like_sprite(bytes: &[u8], extension: &str) -> bool {
+    match extension {
+        "png" => bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]),
+        "webp" => bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP",
+        _ => false,
+    }
+}
+
+fn validate_sprite(bytes: &[u8], extension: &str) -> Result<u8, String> {
+    if !looks_like_sprite(bytes, extension) {
+        return Err("桌宠图集内容与扩展名不匹配".to_string());
+    }
+    let dimensions = imagesize::blob_size(bytes).map_err(|_| "无法读取桌宠图集尺寸".to_string())?;
+    match (dimensions.width, dimensions.height) {
+        (1536, 1872) => Ok(1),
+        (1536, 2288) => Ok(2),
+        _ => Err(format!(
+            "ChatGPT 桌宠图集应为 1536×1872（v1）或 1536×2288（v2），实际为 {}×{}",
+            dimensions.width, dimensions.height
+        )),
+    }
+}
+
+struct ParsedPetPackage {
+    manifest: PetManifest,
+    manifest_bytes: Vec<u8>,
+    sprite_bytes: Vec<u8>,
+}
+
+fn parse_pet_archive(archive_bytes: Vec<u8>) -> Result<ParsedPetPackage, String> {
+    let mut archive = zip::ZipArchive::new(Cursor::new(archive_bytes))
+        .map_err(|_| "请选择有效的 ZIP 角色包".to_string())?;
+
+    let manifest_index = find_archive_entry(&mut archive, "pet.json")
+        .ok_or_else(|| "角色包缺少 pet.json".to_string())?;
+    let manifest_entry_name = archive
+        .by_index(manifest_index)
+        .map_err(|e| e.to_string())?
+        .name()
+        .replace('\\', "/");
+    let manifest_parent = manifest_entry_name
+        .strip_suffix("pet.json")
+        .unwrap_or_default();
+    let manifest_bytes = read_archive_entry(&mut archive, manifest_index, MAX_PET_MANIFEST_BYTES)?;
+    let manifest: PetManifest =
+        serde_json::from_slice(&manifest_bytes).map_err(|e| format!("pet.json 格式错误: {e}"))?;
+    validate_pet_manifest(&manifest)?;
+
+    let sprite_archive_name = format!("{}{}", manifest_parent, manifest.spritesheet_path);
+    let sprite_index = (0..archive.len())
+        .find(|index| {
+            archive
+                .by_index(*index)
+                .ok()
+                .map(|entry| entry.name().replace('\\', "/") == sprite_archive_name)
+                .unwrap_or(false)
+        })
+        .ok_or_else(|| "角色包缺少 pet.json 指定的 spritesheet 文件".to_string())?;
+    let sprite_bytes = read_archive_entry(&mut archive, sprite_index, MAX_PET_SPRITESHEET_BYTES)?;
+    let extension = Path::new(&manifest.spritesheet_path)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    let detected_version = validate_sprite(&sprite_bytes, &extension)?;
+    if detected_version != manifest.sprite_version_number.unwrap_or(1) {
+        return Err(format!(
+            "pet.json 声明为 v{}，但图集实际是 v{detected_version}",
+            manifest.sprite_version_number.unwrap_or(1)
+        ));
+    }
+
+    Ok(ParsedPetPackage {
+        manifest,
+        manifest_bytes,
+        sprite_bytes,
+    })
+}
+
+fn imported_pet_name(file_name: &str) -> String {
+    let name = Path::new(file_name)
+        .file_stem()
+        .and_then(|value| value.to_str())
+        .unwrap_or("ChatGPT 桌宠")
+        .trim();
+    if name.is_empty() || name.starts_with('.') {
+        "ChatGPT 桌宠".to_string()
+    } else {
+        name.chars().take(80).collect()
+    }
+}
+
+fn chatgpt_pets_dir() -> Result<PathBuf, String> {
+    if let Some(path) = std::env::var_os("CODEX_HOME") {
+        return Ok(PathBuf::from(path).join("pets"));
+    }
+    dirs::home_dir()
+        .map(|home| home.join(".codex").join("pets"))
+        .ok_or_else(|| "无法定位 ChatGPT 本地桌宠目录".to_string())
+}
+
+fn chatgpt_import_id(source_id: &str) -> String {
+    const PREFIX: &str = "chatgpt-";
+    let available = 64 - PREFIX.len();
+    let suffix: String = source_id
+        .chars()
+        .map(|value| value.to_ascii_lowercase())
+        .filter(|value| {
+            value.is_ascii_lowercase() || value.is_ascii_digit() || matches!(value, '-' | '_')
+        })
+        .take(available)
+        .collect();
+    format!(
+        "{PREFIX}{}",
+        if suffix.is_empty() { "pet" } else { &suffix }
+    )
+}
+
+#[tauri::command]
+fn import_chatgpt_pets(
+    state: tauri::State<AppState>,
+    app: AppHandle,
+) -> Result<Vec<PetPackageSummary>, String> {
+    let source_root = chatgpt_pets_dir()?;
+    let entries = std::fs::read_dir(&source_root).map_err(|_| {
+        "未发现 ChatGPT 本地自定义桌宠；请先在 ChatGPT 桌面端创建角色，或手动导入 PNG/WebP"
+            .to_string()
+    })?;
+    let mut imported = Vec::new();
+
+    for entry in entries.flatten() {
+        let source_dir = entry.path();
+        if !source_dir.is_dir() {
+            continue;
+        }
+        let Ok(source_manifest) = read_pet_manifest(&source_dir) else {
+            continue;
+        };
+        let Ok(sprite_bytes) = std::fs::read(source_dir.join(&source_manifest.spritesheet_path))
+        else {
+            continue;
+        };
+        if sprite_bytes.len() > MAX_PET_SPRITESHEET_BYTES {
+            continue;
+        }
+        let extension = Path::new(&source_manifest.spritesheet_path)
+            .extension()
+            .and_then(|value| value.to_str())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        let Ok(detected_version) = validate_sprite(&sprite_bytes, &extension) else {
+            continue;
+        };
+        if detected_version != source_manifest.sprite_version_number.unwrap_or(1) {
+            continue;
+        }
+
+        let manifest = PetManifest {
+            id: chatgpt_import_id(&source_manifest.id),
+            display_name: source_manifest.display_name,
+            description: source_manifest.description,
+            sprite_version_number: Some(detected_version),
+            spritesheet_path: format!("spritesheet.{extension}"),
+        };
+        if validate_pet_manifest(&manifest).is_err() {
+            continue;
+        }
+        let Ok(manifest_bytes) = serde_json::to_vec_pretty(&manifest) else {
+            continue;
+        };
+        let target_dir = get_pets_dir().join(&manifest.id);
+        std::fs::create_dir_all(&target_dir).map_err(|e| format!("创建角色目录失败: {e}"))?;
+        std::fs::write(target_dir.join(&manifest.spritesheet_path), sprite_bytes)
+            .map_err(|e| format!("同步 ChatGPT 桌宠图集失败: {e}"))?;
+        std::fs::write(target_dir.join("pet.json"), manifest_bytes)
+            .map_err(|e| format!("同步 ChatGPT 桌宠清单失败: {e}"))?;
+        imported.push(pet_summary(&manifest));
+    }
+
+    imported.sort_by(|a, b| a.display_name.cmp(&b.display_name));
+    if imported.is_empty() {
+        return Err(
+            "未发现 ChatGPT 自定义桌宠。这里只同步 ~/.codex/pets 中创建的角色；ChatGPT 内置角色不会写入该目录"
+                .to_string(),
+        );
+    }
+
+    let selected_pet_id = state.config.lock().unwrap().selected_pet_id.clone();
+    if imported.iter().any(|pet| pet.id == selected_pet_id) {
+        let _ = app.emit("pet-selection-changed", &selected_pet_id);
+    }
+    Ok(imported)
+}
+
+#[tauri::command]
+fn install_pet_spritesheet(
+    image_base64: String,
+    file_name: String,
+) -> Result<PetPackageSummary, String> {
+    if image_base64.len() > MAX_PET_SPRITESHEET_BYTES * 2 {
+        return Err("桌宠图集不能超过 20 MB".to_string());
+    }
+    let sprite_bytes = BASE64
+        .decode(image_base64)
+        .map_err(|_| "桌宠图集编码无效".to_string())?;
+    if sprite_bytes.len() > MAX_PET_SPRITESHEET_BYTES {
+        return Err("桌宠图集不能超过 20 MB".to_string());
+    }
+
+    let extension = Path::new(&file_name)
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if !matches!(extension.as_str(), "png" | "webp") {
+        return Err("请选择 ChatGPT 导出的 PNG 或 WebP 桌宠图集".to_string());
+    }
+    let sprite_version_number = validate_sprite(&sprite_bytes, &extension)?;
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "无法生成角色编号".to_string())?
+        .as_millis();
+    let manifest = PetManifest {
+        id: format!("chatgpt-pet-{timestamp}"),
+        display_name: imported_pet_name(&file_name),
+        description: "从 ChatGPT 自定义桌宠图集导入".to_string(),
+        sprite_version_number: Some(sprite_version_number),
+        spritesheet_path: format!("spritesheet.{extension}"),
+    };
+    validate_pet_manifest(&manifest)?;
+    let manifest_bytes =
+        serde_json::to_vec_pretty(&manifest).map_err(|e| format!("生成 pet.json 失败: {e}"))?;
+    let target_dir = get_pets_dir().join(&manifest.id);
+    std::fs::create_dir_all(&target_dir).map_err(|e| format!("创建角色目录失败: {e}"))?;
+    std::fs::write(target_dir.join(&manifest.spritesheet_path), sprite_bytes)
+        .map_err(|e| format!("保存桌宠图集失败: {e}"))?;
+    std::fs::write(target_dir.join("pet.json"), manifest_bytes)
+        .map_err(|e| format!("保存 pet.json 失败: {e}"))?;
+
+    Ok(pet_summary(&manifest))
+}
+
+#[tauri::command]
+fn install_pet_package(archive_base64: String) -> Result<PetPackageSummary, String> {
+    if archive_base64.len() > MAX_PET_ARCHIVE_BYTES * 2 {
+        return Err("角色包不能超过 24 MB".to_string());
+    }
+    let archive_bytes = BASE64
+        .decode(archive_base64)
+        .map_err(|_| "角色包编码无效".to_string())?;
+    if archive_bytes.len() > MAX_PET_ARCHIVE_BYTES {
+        return Err("角色包不能超过 24 MB".to_string());
+    }
+    let package = parse_pet_archive(archive_bytes)?;
+    let manifest = package.manifest;
+
+    let target_dir = get_pets_dir().join(&manifest.id);
+    std::fs::create_dir_all(&target_dir).map_err(|e| format!("创建角色目录失败: {e}"))?;
+    std::fs::write(
+        target_dir.join(&manifest.spritesheet_path),
+        package.sprite_bytes,
+    )
+    .map_err(|e| format!("保存 spritesheet 失败: {e}"))?;
+    // 清单最后落盘，避免安装中断时留下指向不完整素材的新配置。
+    std::fs::write(target_dir.join("pet.json"), package.manifest_bytes)
+        .map_err(|e| format!("保存 pet.json 失败: {e}"))?;
+
+    Ok(pet_summary(&manifest))
+}
+
+#[tauri::command]
+fn set_selected_pet(
+    pet_id: String,
+    state: tauri::State<AppState>,
+    app: AppHandle,
+) -> Result<(), String> {
+    validate_pet_id(&pet_id)?;
+    read_pet_manifest(&get_pets_dir().join(&pet_id))?;
+    {
+        let mut config = state.config.lock().unwrap();
+        config.selected_pet_id = pet_id.clone();
+        save_config(&config);
+    }
+    let _ = app.emit("pet-selection-changed", &pet_id);
+    Ok(())
+}
+
+#[tauri::command]
+fn get_pet_size(state: tauri::State<AppState>) -> u16 {
+    state.config.lock().unwrap().pet_size.clamp(72, 128)
+}
+
+#[tauri::command]
+fn set_pet_size(size: u16, state: tauri::State<AppState>, app: AppHandle) -> Result<(), String> {
+    let size = size.clamp(72, 128);
+    {
+        let mut config = state.config.lock().unwrap();
+        config.pet_size = size;
+        save_config(&config);
+    }
+    let _ = app.emit("pet-size-changed", size);
+    Ok(())
+}
+
+#[tauri::command]
+fn get_active_pet_package(state: tauri::State<AppState>) -> Result<ActivePetPackage, String> {
+    let pet_id = state.config.lock().unwrap().selected_pet_id.clone();
+    let selected_dir = get_pets_dir().join(&pet_id);
+    let (dir, manifest) = match read_pet_manifest(&selected_dir) {
+        Ok(manifest) => (selected_dir, manifest),
+        Err(_) => {
+            let default_dir = get_pets_dir().join(default_pet_id());
+            let manifest = read_pet_manifest(&default_dir)?;
+            (default_dir, manifest)
+        }
+    };
+    let sprite_bytes = std::fs::read(dir.join(&manifest.spritesheet_path))
+        .map_err(|e| format!("读取 spritesheet 失败: {e}"))?;
+    if sprite_bytes.len() > MAX_PET_SPRITESHEET_BYTES {
+        return Err("spritesheet 文件过大".to_string());
+    }
+    let extension = Path::new(&manifest.spritesheet_path)
+        .extension()
+        .and_then(|v| v.to_str())
+        .unwrap_or("webp")
+        .to_ascii_lowercase();
+    let mime = if extension == "png" {
+        "image/png"
+    } else {
+        "image/webp"
+    };
+    Ok(ActivePetPackage {
+        manifest,
+        spritesheet_data_url: format!("data:{mime};base64,{}", BASE64.encode(sprite_bytes)),
+    })
 }
 
 // ========== 交易时间判断 ==========
@@ -1595,7 +2153,8 @@ fn open_or_focus_settings(app: &AppHandle) {
         tauri::WebviewUrl::App("index.html#/settings".into()),
     )
     .title("设置")
-    .inner_size(560.0, 480.0)
+    .inner_size(1040.0, 720.0)
+    .min_inner_size(720.0, 540.0)
     .center()
     .skip_taskbar(false);
 
@@ -1614,15 +2173,70 @@ fn open_or_focus_settings(app: &AppHandle) {
     }
 }
 
+#[tauri::command]
+fn open_settings_window(app: AppHandle) {
+    open_or_focus_settings(&app);
+}
+
 // ========== 托盘 ==========
 
+fn pet_visibility_menu_text(is_visible: bool) -> &'static str {
+    if is_visible {
+        "隐藏桌宠"
+    } else {
+        "显示桌宠"
+    }
+}
+
+fn sync_pet_visibility_menu(app: &AppHandle, is_visible: bool) {
+    let menu_item = app
+        .state::<AppState>()
+        .pet_visibility_item
+        .lock()
+        .unwrap()
+        .clone();
+
+    if let Some(menu_item) = menu_item {
+        menu_item
+            .set_text(pet_visibility_menu_text(is_visible))
+            .ok();
+    }
+}
+
+fn toggle_pet_window(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+
+    let is_visible = window.is_visible().unwrap_or(false);
+    if is_visible {
+        window.hide().ok();
+    } else {
+        window.show().ok();
+        window.set_focus().ok();
+    }
+
+    let is_visible = window.is_visible().unwrap_or(!is_visible);
+    sync_pet_visibility_menu(app, is_visible);
+}
+
 fn create_tray(app: &AppHandle) -> tauri::Result<()> {
-    let show_item = MenuItem::with_id(app, "show", "显示桌宠", true, None::<&str>)?;
-    let hide_item = MenuItem::with_id(app, "hide", "隐藏桌宠", true, None::<&str>)?;
+    let is_pet_visible = app
+        .get_webview_window("main")
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(true);
+    let visibility_item = MenuItem::with_id(
+        app,
+        "toggle_pet_visibility",
+        pet_visibility_menu_text(is_pet_visible),
+        true,
+        None::<&str>,
+    )?;
     let settings_item = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
 
-    let menu = Menu::with_items(app, &[&show_item, &hide_item, &settings_item, &quit_item])?;
+    let menu = Menu::with_items(app, &[&visibility_item, &settings_item, &quit_item])?;
+    *app.state::<AppState>().pet_visibility_item.lock().unwrap() = Some(visibility_item);
 
     TrayIconBuilder::with_id("main-tray")
         .icon(app.default_window_icon().unwrap().clone())
@@ -1630,17 +2244,7 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
         .tooltip("股票桌宠 - 加载中...")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
-            "show" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    window.show().ok();
-                    window.set_focus().ok();
-                }
-            }
-            "hide" => {
-                if let Some(window) = app.get_webview_window("main") {
-                    window.hide().ok();
-                }
-            }
+            "toggle_pet_visibility" => toggle_pet_window(app),
             "settings" => open_or_focus_settings(app),
             "quit" => {
                 app.exit(0);
@@ -1654,15 +2258,7 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
                 ..
             } = event
             {
-                let app = tray.app_handle();
-                if let Some(window) = app.get_webview_window("main") {
-                    if window.is_visible().unwrap_or(false) {
-                        window.hide().ok();
-                    } else {
-                        window.show().ok();
-                        window.set_focus().ok();
-                    }
-                }
+                toggle_pet_window(tray.app_handle());
             }
         })
         .build(app)?;
@@ -1674,16 +2270,52 @@ fn create_tray(app: &AppHandle) -> tauri::Result<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    ensure_default_pet_package().expect("failed to prepare default pet package");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_log::Builder::default().build())
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
+
+                    #[cfg(target_os = "macos")]
+                    let pet_shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
+                    #[cfg(target_os = "macos")]
+                    let fallback_shortcut =
+                        Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::Space);
+                    #[cfg(target_os = "windows")]
+                    let pet_shortcut =
+                        Shortcut::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyP);
+                    #[cfg(target_os = "windows")]
+                    let fallback_shortcut =
+                        Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyP);
+                    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+                    let pet_shortcut =
+                        Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyP);
+                    #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+                    let fallback_shortcut = Shortcut::new(
+                        Some(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                        Code::KeyP,
+                    );
+
+                    if (shortcut == &pet_shortcut || shortcut == &fallback_shortcut)
+                        && event.state() == ShortcutState::Pressed
+                    {
+                        toggle_pet_window(app);
+                    }
+                })
+                .build(),
+        )
         .manage(AppState {
             config: Mutex::new(load_config()),
             stocks_state: Mutex::new(Vec::new()),
             evening_fetch_date: Mutex::new(None),
             mock_state: Mutex::new(MockState::default()),
+            pet_visibility_item: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             get_config,
@@ -1701,6 +2333,15 @@ pub fn run() {
             set_privacy_mode,
             get_vision_config,
             set_vision_config,
+            list_pet_packages,
+            install_pet_package,
+            install_pet_spritesheet,
+            import_chatgpt_pets,
+            set_selected_pet,
+            get_active_pet_package,
+            get_pet_size,
+            set_pet_size,
+            open_settings_window,
             recognize_holdings,
             refresh_prices,
             open_mock_panel,
@@ -1709,10 +2350,36 @@ pub fn run() {
             set_mock_state,
         ])
         .setup(|app| {
+            use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut};
+
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             create_tray(app.handle())?;
+
+            #[cfg(target_os = "macos")]
+            let pet_shortcut = Shortcut::new(Some(Modifiers::ALT), Code::Space);
+            #[cfg(target_os = "macos")]
+            let fallback_shortcut =
+                Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::Space);
+            #[cfg(target_os = "windows")]
+            let pet_shortcut = Shortcut::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyP);
+            #[cfg(target_os = "windows")]
+            let fallback_shortcut =
+                Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyP);
+            #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+            let pet_shortcut = Shortcut::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyP);
+            #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
+            let fallback_shortcut = Shortcut::new(
+                Some(Modifiers::CONTROL | Modifiers::ALT | Modifiers::SHIFT),
+                Code::KeyP,
+            );
+            if let Err(error) = app.global_shortcut().register(pet_shortcut) {
+                log::warn!("默认桌宠快捷键注册失败，改用备用快捷键: {error}");
+                if let Err(fallback_error) = app.global_shortcut().register(fallback_shortcut) {
+                    log::warn!("备用桌宠快捷键注册失败: {fallback_error}");
+                }
+            }
 
             let window = app.get_webview_window("main").unwrap();
             configure_pet_window(&window);
@@ -1731,4 +2398,67 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bundled_golden_package_matches_codex_v1_contract() {
+        let package = parse_pet_archive(DEFAULT_PET_ARCHIVE.to_vec()).unwrap();
+        assert_eq!(package.manifest.id, default_pet_id());
+        assert_eq!(package.manifest.sprite_version_number, Some(1));
+
+        let dimensions = imagesize::blob_size(&package.sprite_bytes).unwrap();
+        assert_eq!((dimensions.width, dimensions.height), (1536, 1872));
+        assert!(looks_like_sprite(&package.sprite_bytes, "webp"));
+        assert_eq!(validate_sprite(&package.sprite_bytes, "webp").unwrap(), 1);
+    }
+
+    #[test]
+    fn imported_pet_uses_file_name_as_display_name() {
+        assert_eq!(imported_pet_name("我的桌宠.webp"), "我的桌宠");
+        assert_eq!(imported_pet_name(".png"), "ChatGPT 桌宠");
+    }
+
+    #[test]
+    fn chatgpt_pet_ids_are_namespaced_and_bounded() {
+        assert_eq!(chatgpt_import_id("little-fox"), "chatgpt-little-fox");
+        assert!(chatgpt_import_id(&"a".repeat(64)).len() <= 64);
+    }
+
+    #[test]
+    fn pet_visibility_menu_describes_the_next_action() {
+        assert_eq!(pet_visibility_menu_text(true), "隐藏桌宠");
+        assert_eq!(pet_visibility_menu_text(false), "显示桌宠");
+    }
+
+    #[test]
+    fn chatgpt_manifest_without_id_uses_directory_name() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let pet_dir = std::env::temp_dir().join(format!("stock-pet-chatgpt-{suffix}"));
+        std::fs::create_dir_all(&pet_dir).unwrap();
+        std::fs::write(
+            pet_dir.join("pet.json"),
+            r#"{
+                "displayName": "本机测试桌宠",
+                "description": "ChatGPT manifest without id",
+                "spriteVersionNumber": 2,
+                "spritesheetPath": "spritesheet.webp"
+            }"#,
+        )
+        .unwrap();
+        std::fs::write(pet_dir.join("spritesheet.webp"), []).unwrap();
+
+        let result = read_pet_manifest(&pet_dir);
+        std::fs::remove_dir_all(&pet_dir).ok();
+
+        let manifest = result.expect("ChatGPT manifest should use its directory name as id");
+        assert!(manifest.id.starts_with("stock-pet-chatgpt-"));
+        assert_eq!(manifest.display_name, "本机测试桌宠");
+    }
 }

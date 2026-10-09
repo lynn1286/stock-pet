@@ -7,14 +7,16 @@ import { EmptyState } from './settings/EmptyState';
 import { Toast } from './settings/Toast';
 import { AddStockDialog } from './settings/AddStockDialog';
 import { EditStockDialog } from './settings/EditStockDialog';
-import { SettingsDialog } from './settings/SettingsDialog';
+import { SettingsDialog, type SettingsSection } from './settings/SettingsDialog';
 import { ImageImportDialog } from './settings/ImageImportDialog';
 import { PortfolioSummary } from './settings/PortfolioSummary';
 import { PrivacyModeButton } from './settings/PrivacyModeButton';
 import { UpdateBadge } from './settings/UpdateBadge';
+import { PetLibraryDialog } from './settings/PetLibraryDialog';
 
 type SortKey = 'daily_profit' | 'profit';
 type SortDir = 'asc' | 'desc';
+type WorkspaceSection = 'dashboard' | 'pets' | SettingsSection;
 
 interface StockConfigItem {
   secid: string;
@@ -68,13 +70,15 @@ export function SettingsPage() {
     setTrayDisplay,
     setPrivacyMode,
     setVisionConfig,
+    setSelectedPet,
   } = useStockConfig();
 
   const flashMap = useFlashEffect(liveStocks);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [newlyAdded, setNewlyAdded] = useState<string | null>(null);
   const [editingSecid, setEditingSecid] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState('');
@@ -85,14 +89,17 @@ export function SettingsPage() {
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
-  const handleSort = useCallback((key: SortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
-      return;
-    }
-    setSortKey(key);
-    setSortDir('desc');
-  }, [sortKey]);
+  const handleSort = useCallback(
+    (key: SortKey) => {
+      if (sortKey === key) {
+        setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+        return;
+      }
+      setSortKey(key);
+      setSortDir('desc');
+    },
+    [sortKey],
+  );
 
   const sortedStocks = useMemo(() => {
     if (!config || !sortKey) return config?.stocks ?? [];
@@ -209,56 +216,35 @@ export function SettingsPage() {
   }
 
   const privacyMode = config.privacy_mode ?? 'none';
+  const settingsSection: SettingsSection | null =
+    workspaceSection === 'dashboard' || workspaceSection === 'pets' ? null : workspaceSection;
 
   return (
     <div className="s-app">
       <header className="s-topbar">
         <div className="s-topbar-left">
-          <svg
-            className="s-topbar-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            aria-hidden
-          >
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
-          <span className="s-topbar-title">持仓管理</span>
+          <span className="s-brand-mark" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 16.5 9 12l3 2.8L19 7" />
+              <path d="M19 11V7h-4" />
+            </svg>
+          </span>
+          <span className="s-brand-copy">
+            <strong className="s-topbar-title">会盯盘</strong>
+            <small>资产中心</small>
+          </span>
         </div>
         <div className="s-topbar-right">
-          <span className="s-topbar-count">{config.stocks.length} 只</span>
           {primaryStock && (
             <span className="s-topbar-primary" title={primaryStock.name}>
-              {primaryStock.name}
+              正在关注：{primaryStock.name}
             </span>
           )}
-          <button
-            className="s-topbar-icon-btn"
-            onClick={() => setShowImportDialog(true)}
-            aria-label="图片导入持仓"
-            title="图片导入持仓"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M21 15l-5-5L5 21" />
-            </svg>
-          </button>
           <PrivacyModeButton value={privacyMode} onChange={setPrivacyMode} />
           <UpdateBadge />
           <button
             className="s-topbar-icon-btn"
-            onClick={() => setShowSettingsDialog(true)}
+            onClick={() => setWorkspaceSection('pet')}
             aria-label="设置"
             title="设置"
           >
@@ -274,105 +260,293 @@ export function SettingsPage() {
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </button>
-          <button
-            className="s-topbar-add"
-            onClick={() => setShowAddDialog(true)}
-            aria-label="添加持仓"
-            title="添加持仓"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
         </div>
       </header>
 
-      <div className="s-content-split">
-        <PortfolioSummary
-          stocks={config.stocks}
-          liveStocks={liveStocks}
-          privacyMode={privacyMode}
-        />
+      <div className={`s-workbench${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
+        <aside className="s-sidebar">
+          <button
+            type="button"
+            className="s-sidebar-collapse-zone"
+            aria-label={sidebarCollapsed ? '展开侧栏' : '折叠侧栏'}
+            aria-expanded={!sidebarCollapsed}
+            onClick={() => setSidebarCollapsed((value) => !value)}
+          />
+          <nav className="s-sidebar-nav" aria-label="主导航">
+            <section>
+              <span className="s-sidebar-label">总览</span>
+              <button
+                type="button"
+                className={workspaceSection === 'dashboard' ? 'on' : ''}
+                aria-current={workspaceSection === 'dashboard' ? 'page' : undefined}
+                title="资产看板"
+                onClick={() => setWorkspaceSection('dashboard')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="4" y="4" width="6" height="6" rx="1" />
+                  <rect x="14" y="4" width="6" height="6" rx="1" />
+                  <rect x="4" y="14" width="6" height="6" rx="1" />
+                  <rect x="14" y="14" width="6" height="6" rx="1" />
+                </svg>
+                <span className="s-sidebar-item-label">资产看板</span>
+              </button>
+            </section>
+            <section>
+              <span className="s-sidebar-label">桌宠</span>
+              <button
+                type="button"
+                className={workspaceSection === 'pets' ? 'on' : ''}
+                aria-current={workspaceSection === 'pets' ? 'page' : undefined}
+                title="角色与安装"
+                onClick={() => setWorkspaceSection('pets')}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                  <circle cx="7" cy="7" r="2" />
+                  <circle cx="17" cy="7" r="2" />
+                  <circle cx="4.5" cy="12" r="1.8" />
+                  <circle cx="19.5" cy="12" r="1.8" />
+                  <path d="M12 10c-3.2 0-5.8 2.8-5.8 5.5 0 2.1 1.7 3.5 3.7 3.5.8 0 1.4-.4 2.1-.4s1.3.4 2.1.4c2 0 3.7-1.4 3.7-3.5C17.8 12.8 15.2 10 12 10z" />
+                </svg>
+                <span className="s-sidebar-item-label">角色与安装</span>
+              </button>
+              <button
+                type="button"
+                className={workspaceSection === 'pet' ? 'on' : ''}
+                aria-current={workspaceSection === 'pet' ? 'page' : undefined}
+                title="桌宠显示"
+                onClick={() => setWorkspaceSection('pet')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 5h16v11H4z" />
+                  <path d="M8 20h8M12 16v4" />
+                </svg>
+                <span className="s-sidebar-item-label">桌宠显示</span>
+              </button>
+            </section>
+            <section>
+              <span className="s-sidebar-label">偏好</span>
+              <button
+                type="button"
+                className={workspaceSection === 'portfolio' ? 'on' : ''}
+                aria-current={workspaceSection === 'portfolio' ? 'page' : undefined}
+                title="行情显示"
+                onClick={() => setWorkspaceSection('portfolio')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 18V9m5 9V5m6 13v-6m5 6V3" />
+                </svg>
+                <span className="s-sidebar-item-label">行情显示</span>
+              </button>
+              <button
+                type="button"
+                className={workspaceSection === 'privacy' ? 'on' : ''}
+                aria-current={workspaceSection === 'privacy' ? 'page' : undefined}
+                title="隐私保护"
+                onClick={() => setWorkspaceSection('privacy')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6z" />
+                  <path d="M9 12h6" />
+                </svg>
+                <span className="s-sidebar-item-label">隐私保护</span>
+              </button>
+              <button
+                type="button"
+                className={workspaceSection === 'vision' ? 'on' : ''}
+                aria-current={workspaceSection === 'vision' ? 'page' : undefined}
+                title="图片识别"
+                onClick={() => setWorkspaceSection('vision')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="m21 15-5-5L5 21" />
+                </svg>
+                <span className="s-sidebar-item-label">图片识别</span>
+              </button>
+              <button
+                type="button"
+                className={workspaceSection === 'about' ? 'on' : ''}
+                aria-current={workspaceSection === 'about' ? 'page' : undefined}
+                title="关于应用"
+                onClick={() => setWorkspaceSection('about')}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 11v5M12 8h.01" />
+                </svg>
+                <span className="s-sidebar-item-label">关于应用</span>
+              </button>
+            </section>
+          </nav>
+          <div className="s-sidebar-status">
+            <span>
+              <i aria-hidden />
+              行情自动刷新
+            </span>
+            <small>数据仅保存在本机</small>
+          </div>
+        </aside>
 
-        <div
-          ref={tableScrollRef}
-          className={`s-table-scroll${config.stocks.length === 0 ? ' s-table-scroll--empty' : ''}`}
-          onScroll={config.stocks.length > 0 ? syncNameColShadow : undefined}
+        <main
+          className={`s-dashboard${workspaceSection === 'dashboard' ? '' : ' s-dashboard--inline'}`}
         >
-          {config.stocks.length === 0 ? (
-            <EmptyState onAdd={() => setShowAddDialog(true)} />
-          ) : (
-            <table className="s-table">
-              <thead>
-                <tr>
-                  <th className="s-th-name">名称</th>
-                  <th className="s-th-num">份额</th>
-                  <th className="s-th-num s-th-stacked">现价/成本</th>
-                  <th className="s-th-num s-th-sortable" aria-sort={sortKey === 'daily_profit' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                    <button
-                      type="button"
-                      className={`s-th-sort-btn${sortKey === 'daily_profit' ? ' on' : ''}`}
-                      onClick={() => handleSort('daily_profit')}
+          {workspaceSection === 'dashboard' ? (
+            <>
+              <header className="s-dashboard-head">
+                <div>
+                  <h1>资产看板</h1>
+                  <p>集中查看持仓表现，并管理你的桌面伙伴。</p>
+                </div>
+                <div className="s-dashboard-actions">
+                  <button
+                    type="button"
+                    className="s-dashboard-secondary"
+                    onClick={() => setShowImportDialog(true)}
+                  >
+                    识图导入
+                  </button>
+                  <button
+                    type="button"
+                    className="s-topbar-add"
+                    onClick={() => setShowAddDialog(true)}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
                     >
-                      当日收益
-                      <SortTriangles active={sortKey === 'daily_profit'} dir={sortDir} />
-                    </button>
-                  </th>
-                  <th className="s-th-num s-th-sortable" aria-sort={sortKey === 'profit' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-                    <button
-                      type="button"
-                      className={`s-th-sort-btn${sortKey === 'profit' ? ' on' : ''}`}
-                      onClick={() => handleSort('profit')}
-                    >
-                      盈亏
-                      <SortTriangles active={sortKey === 'profit'} dir={sortDir} />
-                    </button>
-                  </th>
-                  <th className="s-th-action" aria-label="操作"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedStocks.map((stock) => (
-                  <StockRow
-                    key={stock.secid}
-                    stock={stock}
-                    live={liveStocks.get(stock.secid)}
-                    isHighlighted={newlyAdded === stock.secid}
-                    displayMode={config.display_mode}
-                    privacyMode={privacyMode}
-                    flash={flashMap.get(stock.secid)}
-                    onEdit={openEditDialog}
-                    onDelete={handleDelete}
-                  />
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                    <span>添加持仓</span>
+                  </button>
+                </div>
+              </header>
 
-      <SettingsDialog
-        open={showSettingsDialog}
-        displayMode={config.display_mode}
-        trayDisplay={config.tray_display}
-        privacyMode={privacyMode}
-        stocks={config.stocks}
-        visionConfig={config.vision}
-        onDisplayModeChange={setDisplayMode}
-        onTrayDisplayChange={setTrayDisplay}
-        onPrivacyModeChange={setPrivacyMode}
-        onSetPrimary={setPrimary}
-        onSaveVisionConfig={setVisionConfig}
-        onClose={() => setShowSettingsDialog(false)}
-      />
+              <PortfolioSummary
+                stocks={config.stocks}
+                liveStocks={liveStocks}
+                privacyMode={privacyMode}
+              />
+
+              <section className="s-holdings-card">
+                <div className="s-holdings-bar">
+                  <div>
+                    <strong>持仓明细</strong>
+                    <span>{config.stocks.length} 项资产</span>
+                  </div>
+                  {primaryStock && <span>桌宠正在关注 {primaryStock.name}</span>}
+                </div>
+
+                <div
+                  ref={tableScrollRef}
+                  className={`s-table-scroll${config.stocks.length === 0 ? ' s-table-scroll--empty' : ''}`}
+                  onScroll={config.stocks.length > 0 ? syncNameColShadow : undefined}
+                >
+                  {config.stocks.length === 0 ? (
+                    <EmptyState onAdd={() => setShowAddDialog(true)} />
+                  ) : (
+                    <table className="s-table">
+                      <thead>
+                        <tr>
+                          <th className="s-th-name">名称</th>
+                          <th className="s-th-num">份额</th>
+                          <th className="s-th-num s-th-stacked">现价/成本</th>
+                          <th
+                            className="s-th-num s-th-sortable"
+                            aria-sort={
+                              sortKey === 'daily_profit'
+                                ? sortDir === 'asc'
+                                  ? 'ascending'
+                                  : 'descending'
+                                : 'none'
+                            }
+                          >
+                            <button
+                              type="button"
+                              className={`s-th-sort-btn${sortKey === 'daily_profit' ? ' on' : ''}`}
+                              onClick={() => handleSort('daily_profit')}
+                            >
+                              当日收益
+                              <SortTriangles active={sortKey === 'daily_profit'} dir={sortDir} />
+                            </button>
+                          </th>
+                          <th
+                            className="s-th-num s-th-sortable"
+                            aria-sort={
+                              sortKey === 'profit'
+                                ? sortDir === 'asc'
+                                  ? 'ascending'
+                                  : 'descending'
+                                : 'none'
+                            }
+                          >
+                            <button
+                              type="button"
+                              className={`s-th-sort-btn${sortKey === 'profit' ? ' on' : ''}`}
+                              onClick={() => handleSort('profit')}
+                            >
+                              盈亏
+                              <SortTriangles active={sortKey === 'profit'} dir={sortDir} />
+                            </button>
+                          </th>
+                          <th className="s-th-action" aria-label="操作"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedStocks.map((stock) => (
+                          <StockRow
+                            key={stock.secid}
+                            stock={stock}
+                            live={liveStocks.get(stock.secid)}
+                            isHighlighted={newlyAdded === stock.secid}
+                            displayMode={config.display_mode}
+                            privacyMode={privacyMode}
+                            flash={flashMap.get(stock.secid)}
+                            onEdit={openEditDialog}
+                            onDelete={handleDelete}
+                          />
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </section>
+            </>
+          ) : workspaceSection === 'pets' ? (
+            <PetLibraryDialog
+              open
+              embedded
+              selectedPetId={config.selected_pet_id}
+              onSelect={setSelectedPet}
+              onClose={() => undefined}
+            />
+          ) : (
+            settingsSection && (
+              <SettingsDialog
+                open
+                embedded
+                embeddedSection={settingsSection}
+                displayMode={config.display_mode}
+                trayDisplay={config.tray_display}
+                privacyMode={privacyMode}
+                stocks={config.stocks}
+                visionConfig={config.vision}
+                selectedPetId={config.selected_pet_id}
+                onDisplayModeChange={setDisplayMode}
+                onTrayDisplayChange={setTrayDisplay}
+                onPrivacyModeChange={setPrivacyMode}
+                onSetPrimary={setPrimary}
+                onSaveVisionConfig={setVisionConfig}
+                onSelectedPetChange={setSelectedPet}
+                onClose={() => undefined}
+              />
+            )
+          )}
+        </main>
+      </div>
 
       <ImageImportDialog
         open={showImportDialog}
@@ -382,7 +556,7 @@ export function SettingsPage() {
         fetchPrice={fetchPrice}
         onOpenSettings={() => {
           setShowImportDialog(false);
-          setShowSettingsDialog(true);
+          setWorkspaceSection('vision');
         }}
         onImported={handleImported}
         onClose={() => setShowImportDialog(false)}

@@ -3,5 +3,12 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": ["main", "settings", "mock-panel"],
-  "permissions": ["core:default", "core:window:allow-start-dragging", "core:event:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-hide",
+    "core:window:allow-outer-position",
+    "core:window:allow-set-position",
+    "core:event:default"
+  ]
 }

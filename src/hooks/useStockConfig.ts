@@ -38,6 +38,7 @@ interface AppConfig {
   tray_display: TrayDisplay;
   privacy_mode: PrivacyMode;
   vision: VisionConfig;
+  selected_pet_id: string;
 }
 
 const UNDO_WINDOW = 5000;
@@ -276,6 +277,18 @@ export function useStockConfig() {
     [loadConfig],
   );
 
+  const setSelectedPet = useCallback(
+    async (petId: string) => {
+      try {
+        await invoke('set_selected_pet', { petId });
+        await loadConfig();
+      } catch (e) {
+        setError(userMessage(e));
+      }
+    },
+    [loadConfig],
+  );
+
   return {
     config,
     error,
@@ -296,5 +309,6 @@ export function useStockConfig() {
     setTrayDisplay,
     setPrivacyMode,
     setVisionConfig,
+    setSelectedPet,
   };
 }

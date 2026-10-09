@@ -1,24 +1,26 @@
 import type { TradeStatus } from '../types/pet';
 
-function animFromPct(pct: number): string {
-  if (Math.abs(pct) >= 9) return 'anim-wild';
-  if (pct >= 3) return 'anim-big-up';
-  if (pct >= 1) return 'anim-small-up';
-  if (pct > -1) return 'anim-flat';
-  if (pct > -3) return 'anim-small-down';
-  if (pct > -5) return 'anim-big-down';
-  return 'anim-crash';
-}
-
 const ANIM_LABELS: Record<string, string> = {
-  'anim-wild': '极端波动',
-  'anim-big-up': '大涨',
-  'anim-small-up': '小涨',
-  'anim-flat': '横盘',
-  'anim-small-down': '小跌',
-  'anim-big-down': '大跌',
-  'anim-crash': '暴跌',
+  jumping: '涨停雀跃',
+  running: '大涨奔跑',
+  waving: '小涨招手',
+  idle: '横盘待机',
+  review: '小跌复盘',
+  failed: '下跌沮丧',
+  waiting: '非交易时段',
+  sleeping: '休市',
 };
+
+export function animationFromPetState(tradeStatus: TradeStatus, pct: number): string {
+  if (tradeStatus === 'sleep') return 'sleeping';
+  if (tradeStatus === 'rest') return 'waiting';
+  if (pct >= 9) return 'jumping';
+  if (pct >= 3) return 'running';
+  if (pct >= 1) return 'waving';
+  if (pct > -1) return 'idle';
+  if (pct > -3) return 'review';
+  return 'failed';
+}
 
 function formatSignedPct(pct: number): string {
   return pct >= 0 ? `+${pct.toFixed(1)}%` : `${pct.toFixed(1)}%`;
@@ -29,14 +31,12 @@ export { formatSignedPct };
 export function describePetStateLabel(tradeStatus: TradeStatus, changePct: number): string {
   if (tradeStatus === 'sleep') return '休市';
   if (tradeStatus === 'rest') return '非交易时段';
-  const anim = animFromPct(changePct);
+  const anim = animationFromPetState(tradeStatus, changePct);
   return `${formatSignedPct(changePct)} · ${ANIM_LABELS[anim] ?? anim}`;
 }
 
 export function describePetStateDebug(tradeStatus: TradeStatus, changePct: number): string {
-  if (tradeStatus === 'sleep') return 'anim-sleep';
-  if (tradeStatus === 'rest') return 'anim-idle';
-  return animFromPct(changePct);
+  return animationFromPetState(tradeStatus, changePct);
 }
 
 export function mockPctToneClass(tradeStatus: TradeStatus, changePct: number): string {

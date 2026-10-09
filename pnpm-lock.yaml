@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@petx/react':
+        specifier: 0.2.0
+        version: 0.2.0(react@19.2.6)
       '@tauri-apps/api':
         specifier: ^2.11.0
         version: 2.11.0
@@ -243,6 +246,14 @@ packages:
 
   '@oxc-project/types@0.132.0':
     resolution: {integrity: sha512-FESMOxil5Se014ui/Eq8fT5uHJo6nIRwH0PfJrZJXs6Gek3ZVFOrpUv3YIZT20m+extU98Hg1Ym72U58rlsxUQ==}
+
+  '@petx/core@0.2.0':
+    resolution: {integrity: sha512-27hREQU7miWMk4C6rPKx0WlDD3X6sAoxZ27RF2fNaHx90y/BcW4UIr6qRcb7wn3jMBywZpu1VfdMqn32nvx32Q==}
+
+  '@petx/react@0.2.0':
+    resolution: {integrity: sha512-qzUwBUHxRFMgrxBUbChalkJRFhEnpMi8jVta4Mx/SqNHk0xQQbBHE39FMxvuXawEPYdFaIft4c500lRJse1S0g==}
+    peerDependencies:
+      react: '>=18'
 
   '@rolldown/binding-android-arm64@1.0.2':
     resolution: {integrity: sha512-ZS4D1JPGn/MYQN/SYDWftIE/nVsM8j/AFOYEzAoOE2O3NktQOZru+/vYXGbR/qtdLdIfGCP0lcoJiYVzsEz+iQ==}
@@ -1388,6 +1399,13 @@ snapshots:
     optional: true
 
   '@oxc-project/types@0.132.0': {}
+
+  '@petx/core@0.2.0': {}
+
+  '@petx/react@0.2.0(react@19.2.6)':
+    dependencies:
+      '@petx/core': 0.2.0
+      react: 19.2.6
 
   '@rolldown/binding-android-arm64@1.0.2':
     optional: true
